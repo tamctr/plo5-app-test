@@ -1,0 +1,543 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000"><title>PLO5 Hand Rank</title>
+<link rel="icon" href="data:,">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#222}
+body{margin:0;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;padding-bottom:calc(env(safe-area-inset-bottom) + 20px)}
+button{font-family:inherit}
+header{background:#000;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+.logo{width:34px;height:34px;border-radius:8px;background:radial-gradient(circle at 50% 50%,#2fbf4a 0 38%,#c8102e 39%);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;border:2px solid #fff;box-shadow:inset 0 0 0 2px #c8102e}
+header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;letter-spacing:.2px}
+.hbtn{background:none;border:none;color:#ff9500;font-size:15px;font-weight:600;padding:6px 4px;cursor:pointer}
+.pl{border-bottom:1px solid #3a3a3a;padding:8px 12px 6px}
+.pt{display:grid;grid-template-columns:64px 1fr 64px;align-items:center;margin-bottom:8px}
+.pt h2{grid-column:2;text-align:center;font-size:19px;font-weight:700;margin:0}
+.pt .clr{grid-column:3;justify-self:end;background:#3a3a3a;border:1px solid #555;color:#ddd;border-radius:6px;font-size:13px;padding:5px 10px;cursor:pointer}
+.pt .clr:disabled{opacity:.3}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cd{position:relative;aspect-ratio:5/7;border-radius:7px;cursor:pointer;overflow:hidden;user-select:none}
+.cd.face{background:linear-gradient(180deg,#fff 0%,#f1f1f1 70%,#dcdcdc 100%);border:1px solid #9a9a9a;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.cd .cr{position:absolute;left:5px;top:3px;text-align:center;line-height:1;font-size:17px;font-weight:600}
+.cd .cr i{display:block;font-style:normal;font-size:15px;margin-top:1px}
+.cd .big{position:absolute;left:0;right:0;text-align:center;padding-left:14%;bottom:4px;font-family:Georgia,"Times New Roman",serif;font-size:50px;line-height:1;font-weight:400}
+.cd .big.t{font-size:38px;letter-spacing:-3px;padding-left:18%}
+.cd .bs{display:none}
+.red{color:#e0141e}.blk{color:#111}
+.cd.back{border:3px solid #fff;background:#c3141d;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.cd.back:before{content:"";position:absolute;inset:3px;border:1px solid rgba(255,255,255,.45);border-radius:3px;
+ background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(255,255,255,.18) 6px 7px),repeating-linear-gradient(-45deg,transparent 0 6px,rgba(255,255,255,.18) 6px 7px),radial-gradient(circle at 50% 50%,#e8323a 0 28%,rgba(255,255,255,.35) 29% 31%,transparent 32%),#c3141d}
+.cd.back:after{content:"";position:absolute;left:50%;top:50%;width:30%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);border:1.5px solid rgba(255,255,255,.55)}
+.cd.tgt{outline:3px solid #ff9500;outline-offset:1px}
+.st{display:grid;grid-template-columns:28px 1fr 1fr 1fr 34px 34px;align-items:center;margin-top:8px;font-size:15px;color:#ddd}
+.st .h{color:#bbb;font-size:15px;text-align:center}.st .v{text-align:center;font-variant-numeric:tabular-nums;color:#fff}
+.st .lb{font-size:14px;color:#ddd}
+.chev{grid-row:1 / span 2;grid-column:6;background:none;border:none;color:#bbb;cursor:pointer;padding:4px;justify-self:end}
+.chev svg{width:24px;height:24px;transition:transform .2s}.pl.open .chev svg{transform:rotate(180deg)}
+.sum{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:#aaa;margin:6px 0 2px}
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-weight:700;font-size:12px;color:#000}
+.det{display:none;padding:4px 6px 8px 30px}.pl.open .det{display:block}
+.row{display:flex;justify-content:space-between;padding:4px 0;font-size:16px;color:#eee}.row span:last-child{font-variant-numeric:tabular-nums}
+.pos{color:#4cd964}.neg{color:#ff5a4f}
+.row.tot{border-top:1px solid #3a3a3a;margin-top:4px;font-weight:600}
+.sum{flex-wrap:wrap}
+.sm .pt{grid-template-columns:68px 1fr 34px 34px;cursor:pointer}.sm .pt h2{font-size:17px}
+.sm .chev{grid-column:4;grid-row:1}.sm .pt .ib{grid-column:3}.sm.open .chev svg{transform:rotate(180deg)}
+.smb{display:none;padding:2px 2px 10px}.sm.open .smb{display:block}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}.fg label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:.4px}
+.fg .w2{grid-column:1 / span 2}
+.fg select,.fg input{background:#333;color:#fff;border:1px solid #555;border-radius:8px;font-size:16px;padding:9px 8px;width:100%;font-family:inherit;-webkit-appearance:none;appearance:none}
+.fg select{background-image:linear-gradient(45deg,transparent 50%,#bbb 50%),linear-gradient(135deg,#bbb 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:24px}
+.smr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;background:#1a1a1a;border:1px solid #3a3a3a;border-radius:10px;padding:10px 12px}
+.smr .need{font-size:14px;color:#bbb}.smr .need b{display:block;font-size:24px;color:#fff;font-variant-numeric:tabular-nums}
+.verdict{font-size:18px;font-weight:800;padding:8px 14px;border-radius:8px;color:#000}
+.sec{color:#ff9500;font-size:12px;text-transform:uppercase;letter-spacing:.6px;margin:10px 0 2px;font-weight:600}
+.muted{color:#888;font-size:12px;margin-top:4px}
+.hint{color:#888;text-align:center;font-size:13px;padding:14px 20px}
+/* bottom sheet picker */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:#1c1c1e;border-radius:16px 16px 0 0;padding:8px 12px calc(env(safe-area-inset-bottom) + 12px);transform:translateY(105%);transition:transform .25s ease;z-index:11;box-shadow:0 -6px 24px rgba(0,0,0,.6)}
+.open-sheet #scrim{opacity:1;pointer-events:auto}.open-sheet #sheet{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:#555;margin:0 auto 8px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sh b{font-size:16px}.sh .done{background:none;border:none;color:#ff9500;font-size:17px;font-weight:600;cursor:pointer}
+.mini{display:flex;gap:5px;margin-bottom:10px}.mini .cd{width:44px;flex:none}.mini .cd .cr{font-size:12px;left:3px}.mini .cd .cr i{font-size:11px}.mini .cd .big{font-size:24px}.mini .cd .big.t{font-size:19px;letter-spacing:-2px}.mini .cd .bs{display:none}
+.mini .cd.back{border-width:2px}
+.pick{display:flex;gap:8px}.suits{display:flex;flex-direction:column;gap:8px}
+.btn{background:#3a3a3c;border:none;color:#fff;border-radius:10px;font-size:20px;font-weight:600;height:46px;cursor:pointer}
+.btn:active{background:#545456}.btn:disabled{opacity:.2}
+.suits .btn{width:54px;background:#f2f2f2;font-size:24px}.suits .btn.on{outline:3px solid #ff9500}
+.grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.acts{display:flex;gap:8px;margin-top:10px}.acts .btn{flex:1;font-size:16px}
+.orange{background:#ff9500!important;color:#000}
+/* info (i) buttons: 34px touch target, 22px dark circle */
+.ib{width:34px;height:34px;flex:none;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;padding:0;margin:0;cursor:pointer;vertical-align:middle;color:#c7c7cc}
+.ib span{width:22px;height:22px;border-radius:50%;background:#3a3a3c;border:1px solid #636366;display:flex;align-items:center;justify-content:center;font:italic 700 13px/1 Georgia,"Times New Roman",serif;pointer-events:none}
+.ib:active span{background:#545456;color:#fff}.ib:focus-visible span{outline:2px solid #ff9500}
+.st .ib{grid-row:1 / span 2;grid-column:5;justify-self:center}
+.sumw{display:grid;grid-template-columns:1fr 34px 34px;align-items:center;margin:2px 0 0}.sumw .sum{margin:0;min-height:28px}.sumw .ib{grid-column:2}
+.sec.sx{display:flex;align-items:center;justify-content:space-between;gap:6px}.sec.sx .ib{margin:-9px -6px -9px 0}
+.row .ib{margin:-8px -6px -8px 2px}.row .rv{display:inline-flex;align-items:center}
+.fg label{justify-content:space-between}.fg label .lt{display:flex;align-items:center;justify-content:space-between;min-height:16px}.fg label .ib{margin:-9px -6px -9px 0}
+.smr .need .ib{margin:-9px 0 -9px -2px}
+/* info bottom sheet */
+#iscrim{z-index:20}.isheet{z-index:21;padding-top:6px}
+.open-info #iscrim{opacity:1;pointer-events:auto}.open-info #isheet{transform:none}
+.isheet .sh{margin-bottom:4px}.ix{width:34px;height:34px;border-radius:50%;border:none;background:#3a3a3c;color:#ddd;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.ibody{max-height:calc(82vh - 56px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.45;color:#ddd;padding:0 2px 6px}
+.ibody p{margin:6px 0}.ibody b{color:#fff}.ibody h4{color:#ff9500;font-size:12px;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 4px;font-weight:600}
+.ibody .fx{background:#2c2c2e;border-radius:8px;padding:7px 10px;margin:6px 0;font-variant-numeric:tabular-nums;color:#fff}
+.it{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0;font-variant-numeric:tabular-nums}
+.it td,.it th{padding:4px 4px;border-bottom:1px solid #2f2f31;vertical-align:top;text-align:left}.it th{color:#999;font-weight:500;font-size:12px}
+.it td.n,.it th.n{text-align:right;white-space:nowrap}.it tr.hit td{background:rgba(76,217,100,.13);color:#fff}.it tr.dim td{color:#777}
+.it tr.gh td{color:#aaa;font-size:12px;padding-top:10px;border-bottom:1px solid #444}
+</style></head><body>
+<header><div class="logo">%</div><h1>5 Card Omaha Hi</h1><button class="hbtn" id="rall">Random</button></header>
+<div id="players"></div>
+<div class="hint" id="hint">Tap a card to choose cards. Fill Player 1 for its rank &amp; equity; fill Player 2 too for head-to-head odds.</div>
+<section class="pl sm" id="sm"><div class="pt" id="smt"><h2>Set-mining break-even</h2><button class="ib" data-info="sm" aria-label="How set-mining break-even is calculated"><span>i</span></button><button class="chev" aria-label="toggle set-mining panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></button></div>
+ <div class="smb"><div class="fg">
+  <label><span class="lt">Pair</span><select id="smP"></select></label>
+  <label><span class="lt">Stack behind / call (Y)<button class="ib" data-info="smY" aria-label="How Y is calculated"><span>i</span></button></span><input id="smY" type="number" inputmode="decimal" min="0" step="0.5" value="27"></label>
+  <label class="w2"><span class="lt">Table situation<button class="ib" data-info="smC" aria-label="How table situation is calculated"><span>i</span></button></span><select id="smC"></select></label>
+  <label><span class="lt">Payoff model<button class="ib" data-info="smE" aria-label="How payoff model is calculated"><span>i</span></button></span><select id="smE"><option value="EV-3">EV-3 (main)</option><option value="EV-2">EV-2 (all pay)</option></select></label>
+  <label><span class="lt">Hero hand<button class="ib" data-info="smH" aria-label="How hero hand is calculated"><span>i</span></button></span><select id="smH"><option value="a">Pair + 3 random</option><option value="b">Typical playable (≥12 pts)</option></select></label>
+ </div>
+ <div class="smr"><div class="need">Needed S/C <button class="ib" data-info="smN" aria-label="How needed S/C is calculated"><span>i</span></button><b id="smN">–</b></div><span class="verdict" id="smV">–</span></div>
+ <div class="muted" id="smX"></div>
+ <div class="muted">Y = effective stack behind after you call ÷ cost of the call (100bb vs a 3.5bb pot-open ≈ 27; vs a 3-bet ≈ 11). Pure set-mining: you flop a set 12.5% (1 in 8) and fold misses; side-card value ignored. Source: plo5-setmine simulation report (break-even tables).</div></div></section>
+<div class="scrim" id="scrim"></div>
+<div class="scrim" id="iscrim"></div>
+<div class="sheet isheet" id="isheet" role="dialog" aria-modal="true" aria-labelledby="iT"><div class="grab"></div>
+ <div class="sh"><b id="iT">Info</b><button class="ix" id="iX" aria-label="Close">×</button></div>
+ <div class="ibody" id="iB"></div>
+</div>
+<div class="sheet" id="sheet"><div class="grab"></div>
+ <div class="sh"><b id="shT">Player 1</b><button class="done" id="done">Done</button></div>
+ <div class="mini" id="mini"></div>
+ <div class="pick"><div class="suits" id="suits"></div><div class="grid" id="grid"></div></div>
+ <div class="acts"><button class="btn" id="sclr">Clear hand</button><button class="btn orange" id="rnd">Random hand</button></div>
+</div>
+<script id="core">var A1=(function(){var module={exports:{}};
+// PLO5 preflop points — HYBRID: Approach 1 (patched additive) for opening/entering + raised-pot adjustment (3 rules)
+// alt = raised-pot points: use when facing a raise/3-bet from a tight range (fitted to HU equity vs top-25% openers and vs AA+3 random).
+// Built 2026-10-21 by /workspace/plo5-approaches/build.py. Weights fitted on simulated equities (see report.md).
+// score(hand) -> {points, percentile, tier, breakdown}. hand: "AsAhKsQhJd" | "As Ah Ks Qh Jd" | array of card strings.
+// percentile = share of all 2,598,960 PLO5 hands scoring fewer points (ties count half), exact enumeration.
+// shared helpers (inlined into each scorer)
+const R='23456789TJQKA',S='shdc';
+function parse(h){if(Array.isArray(h))h=h.join('');h=h.replace(/[\s,]/g,'');if(h.length!==10)throw new Error('need 5 cards');
+ const r=[],s=[];for(let i=0;i<10;i+=2){const a=R.indexOf(h[i].toUpperCase()),b=S.indexOf(h[i+1].toLowerCase());if(a<0||b<0)throw new Error('bad card '+h.substr(i,2));r.push(a);s.push(b);}
+ if(new Set(r.map((x,i)=>x*4+s[i])).size!==5)throw new Error('duplicate card');return [r,s];}
+function info(r,s){const n=r.length,cnt=Array(13).fill(0);r.forEach(x=>cnt[x]++);
+ const prs=[];for(let x=12;x>=0;x--)if(cnt[x]>=2)prs.push(x);
+ const groups=[];for(let su=0;su<4;su++){const m=[];for(let i=0;i<n;i++)if(s[i]===su)m.push(i);if(m.length>=2){let top=-1;m.forEach(i=>{if(r[i]>top)top=r[i];});groups.push({su,top,n:m.length,m});}}
+ groups.sort((a,b)=>b.top-a.top||b.n-a.n);
+ // best 5-rank window (ace plays 1 and 14); ties -> higher window
+ const has=new Set(r.map(x=>x+2));if(cnt[12])has.add(1);let best=0,bw=0;
+ for(let lo=10;lo>=1;lo--){let k=0;for(let v=lo;v<lo+5;v++)if(has.has(v))k++;if(k>best){best=k;bw=lo;}}
+ const inWin=i=>{const v=r[i]+2;return (v>=bw&&v<bw+5)||(r[i]===12&&bw===1);};
+ return {cnt,prs,groups,best,bw,inWin};}
+function plevel(p){return p===12?'A':p===11?'K':p===10?'Q':p===9?'J':p===8?'T':p>=5?'97':'62';}
+
+// Approach 1: patched additive
+const F1=['pA','pK','pQ','pJ','pT','p97','p62','p2hi','p2mid','p2lo','trips','tripsHi','quads',
+ 's1A','s1K','s1Q','s1T','s1L','s2A','s2K','s2Q','s2T','s2L','s3','s4','pairSuit',
+ 'run5','run4','run3','runHi','runLo','hA','hK','hQ','hJ','hT','lowDang','hiDang','AAds','AAdang','KKds','tripsFH','lowTwoPair','tripsConn'];
+const L1={pA:'Top pair AA',pK:'Top pair KK',pQ:'Top pair QQ',pJ:'Top pair JJ',pT:'Top pair TT',p97:'Top pair 99-77',p62:'Top pair 66-22',
+ p2hi:'Second pair TT+',p2mid:'Second pair 99-66',p2lo:'Second pair 55-22',trips:'Trips (dead 3rd card)',tripsHi:'Trips are TTT+',quads:'Quads',
+ s1A:'Best suit A-high',s1K:'Best suit K-high',s1Q:'Best suit Q/J-high',s1T:'Best suit T-8-high',s1L:'Best suit 7-high or lower',
+ s2A:'Second suit A-high',s2K:'Second suit K-high',s2Q:'Second suit Q/J-high',s2T:'Second suit T-8-high',s2L:'Second suit 7-high or lower',
+ s3:'3 cards in one suit',s4:'4+ cards in one suit',pairSuit:'Suit made only by paired cards',
+ run5:'5 ranks in a 5-rank window',run4:'4 ranks in a 5-rank window',run3:'3 ranks in a 5-rank window',runHi:'Run window tops at Q+',runLo:'Run window tops at 7 or lower',
+ hA:'Has an Ace',hK:'Has a King',hQ:'Has a Queen',hJ:'Has a Jack',hT:'Has a Ten',lowDang:'Low dangler (2-6, unpaired, unsuited, outside run)',hiDang:'Dangler 7+',
+ AAds:'AA and double-suited',tripsFH:'Trips + another pair (full-house shape)',tripsConn:'Trips rank sits inside a 3+ card run',lowTwoPair:'Two pair, both 99 or lower',AAdang:'AA + each dangler',KKds:'KK and double-suited'};
+function feat1(r,s){const I=info(r,s),f={};F1.forEach(k=>f[k]=0);const {cnt,prs,groups}=I;
+ if(prs.length){f['p'+plevel(prs[0])]=1;if(prs.length>1){const q=prs[1];f[q>=8?'p2hi':q>=4?'p2mid':'p2lo']=1;}}
+ for(let x=0;x<13;x++){if(cnt[x]===3){f.trips++;if(x>=8)f.tripsHi++;}if(cnt[x]===4)f.quads++;}
+ const lv=t=>t===12?'A':t===11?'K':t>=9?'Q':t>=6?'T':'L';
+ if(groups[0])f['s1'+lv(groups[0].top)]=1;if(groups[1])f['s2'+lv(groups[1].top)]=1;
+ groups.forEach(g=>{if(g.n===3)f.s3++;if(g.n>=4)f.s4++;if(g.m.every(i=>cnt[r[i]]>=2))f.pairSuit++;});
+ if(I.best>=3){f['run'+I.best]=1;const top=I.bw+4;if(top>=12)f.runHi=1;if(top<=7)f.runLo=1;}
+ [['hA',12],['hK',11],['hQ',10],['hJ',9],['hT',8]].forEach(([k,x])=>{if(cnt[x])f[k]=1;});
+ const suited=new Set();groups.forEach(g=>g.m.forEach(i=>suited.add(i)));let dang=0;
+ for(let i=0;i<5;i++){if(cnt[r[i]]>=2||suited.has(i)||(I.best>=3&&I.inWin(i)))continue;dang++;if(r[i]<=4)f.lowDang++;else f.hiDang++;}
+ if(f.trips&&prs.length>1)f.tripsFH=1;if(f.trips&&I.best>=3){for(let x=0;x<13;x++)if(cnt[x]===3){const i=r.indexOf(x);if(I.inWin(i))f.tripsConn=1;}}if(prs.length>1&&prs[0]<=7&&!f.trips)f.lowTwoPair=1;
+ const ds=groups.length>=2?1:0;if(prs[0]===12){f.AAds=ds;f.AAdang=dang;}if(prs[0]===11)f.KKds=ds;
+ return f;}
+
+const W={"pA": 12, "pK": 9, "pQ": 7, "pJ": 5, "pT": 4, "p97": 3, "p62": -1, "p2hi": 6, "p2mid": 5, "p2lo": 2, "trips": -18, "tripsHi": 3, "quads": -36, "s1A": 5, "s1K": 4, "s1Q": 3, "s1T": 1, "s1L": 0, "s2A": 10, "s2K": 6, "s2Q": 5, "s2T": 4, "s2L": 3, "s3": -2, "s4": -4, "pairSuit": 0, "run5": 7, "run4": 4, "run3": 2, "runHi": 0, "runLo": -4, "hA": 3, "hK": 2, "hQ": 2, "hJ": 2, "hT": 3, "lowDang": 0, "hiDang": 1, "AAds": 2, "AAdang": -1, "KKds": 1, "tripsFH": 6, "lowTwoPair": -1, "tripsConn": 2};
+const WC={};
+const PCT={"-37": 0.002, "-36": 0.005, "-35": 0.005, "-34": 0.005, "-33": 0.006, "-32": 0.009, "-31": 0.011, "-30": 0.012, "-29": 0.012, "-28": 0.014, "-27": 0.015, "-26": 0.016, "-25": 0.017, "-24": 0.018, "-23": 0.019, "-22": 0.019, "-21": 0.03, "-20": 0.05, "-19": 0.079, "-18": 0.121, "-17": 0.155, "-16": 0.236, "-15": 0.363, "-14": 0.467, "-13": 0.543, "-12": 0.62, "-11": 0.746, "-10": 0.899, "-9": 0.997, "-8": 1.057, "-7": 1.146, "-6": 1.254, "-5": 1.36, "-4": 1.518, "-3": 1.767, "-2": 2.181, "-1": 2.816, "0": 3.781, "1": 5.303, "2": 7.258, "3": 9.742, "4": 13.115, "5": 17.474, "6": 22.582, "7": 27.785, "8": 33.583, "9": 39.82, "10": 46.082, "11": 52.518, "12": 58.692, "13": 64.615, "14": 69.918, "15": 74.498, "16": 78.326, "17": 81.931, "18": 85.398, "19": 88.177, "20": 90.563, "21": 92.316, "22": 93.59, "23": 94.674, "24": 95.58, "25": 96.422, "26": 97.024, "27": 97.459, "28": 97.813, "29": 98.104, "30": 98.398, "31": 98.638, "32": 98.849, "33": 99.065, "34": 99.301, "35": 99.497, "36": 99.59, "37": 99.684, "38": 99.781, "39": 99.866, "40": 99.931, "41": 99.959, "42": 99.97, "43": 99.978, "44": 99.988, "45": 99.996};
+const CUT={"Premium": 20, "Open any position": 16, "Late position": 12, "Limp/call": 10}; // minimum points for each tier (Premium>=90th pct, Open>=75, Late>=55, Limp>=40)
+function tier(p){return p>=90?'Premium':p>=75?'Open any position':p>=55?'Late position':p>=40?'Limp/call':'Fold';}
+function pts(hand){const [r,s]=parse(hand);const f=feat1(r,s);let points=0;const breakdown=[];
+ for(const k of F1){const v=(f[k]||0)*(W[k]||0);if(v){points+=v;breakdown.push([L1[k]+(f[k]>1?' x'+f[k]:''),v]);}}
+ return {points,breakdown};}
+const ADJ={"AA": 40, "DS": 7, "SP": -7};
+function rp(hand){const [r,s]=parse(hand);const f=feat1(r,s);const a={AA:f.pA,DS:f.s2A+f.s2K+f.s2Q+f.s2T+f.s2L,SP:f.pT+f.p97+f.p62};
+ const LB={AA:'Raised pot: AA',DS:'Raised pot: double-suited',SP:'Raised pot: best pair TT or lower'};let v=0;const bd=[];
+ for(const k in ADJ){const x=a[k]*ADJ[k];if(x){v+=x;bd.push([LB[k],x]);}}return {adj:v,bd};}
+function score(hand){const {points,breakdown}=pts(hand);const R2=rp(hand);const percentile=PCT[points]!==undefined?PCT[points]:(points<MINP?0:100);return {points,percentile,tier:tier(percentile),breakdown,alt:points+R2.adj,altBreakdown:R2.bd};}
+const MINP=-37,MAXP=45;
+module.exports={score,rp,ADJ,pts,W,WC,PCT,CUT,MINP,MAXP,tier,parse};
+
+;return module.exports;})();
+// ==CORE== shared by page, worker and node
+function eval5(a,b,c,d,e){
+  var r0=a>>2,r1=b>>2,r2=c>>2,r3=d>>2,r4=e>>2;
+  var fl=((a&3)===(b&3))&&((a&3)===(c&3))&&((a&3)===(d&3))&&((a&3)===(e&3));
+  var cnt=[0,0,0,0,0,0,0,0,0,0,0,0,0];cnt[r0]++;cnt[r1]++;cnt[r2]++;cnt[r3]++;cnt[r4]++;
+  var mask=(1<<r0)|(1<<r1)|(1<<r2)|(1<<r3)|(1<<r4);
+  var st=-1;
+  if(((mask>>>0)&(mask-1))!==0 || true){
+    var bits=0;for(var i=0;i<13;i++)if(cnt[i])bits++;
+    if(bits===5){
+      for(var h=12;h>=4;h--){var m=31<<(h-4);if((mask&m)===m){st=h;break;}}
+      if(st<0&&mask===0x100F)st=3; // wheel A2345
+    }
+  }
+  if(st>=0&&fl)return 8e6+st;
+  // build kicker key ordered by (count desc, rank desc)
+  var q=-1,t=-1,p1=-1,p2=-1,k=0;
+  for(var r=12;r>=0;r--){var n=cnt[r];if(n===4)q=r;else if(n===3)t=r;else if(n===2){if(p1<0)p1=r;else p2=r;}}
+  var kick=0;
+  if(q>=0){for(r=12;r>=0;r--)if(cnt[r]===1)kick=r;return 7e6+q*13+kick;}
+  if(t>=0&&p1>=0)return 6e6+t*13+p1;
+  if(fl){kick=0;for(r=12;r>=0;r--)if(cnt[r])kick=kick*13+r;return 5e6+kick;}
+  if(st>=0)return 4e6+st;
+  kick=0;for(r=12;r>=0;r--)if(cnt[r]===1)kick=kick*13+r;
+  if(t>=0)return 3e6+t*169+kick;
+  if(p2>=0)return 2e6+(p1*13+p2)*13+kick;
+  if(p1>=0)return 1e6+p1*2197+kick;
+  return kick;
+}
+var H2=[],B3=[];
+(function(){for(var i=0;i<5;i++)for(var j=i+1;j<5;j++){H2.push([i,j]);for(var k=j+1;k<5;k++)B3.push([i,j,k]);}})();
+function evalPLO(h,b){var best=0;for(var x=0;x<10;x++){var p=H2[x],c1=h[p[0]],c2=h[p[1]];for(var y=0;y<10;y++){var q=B3[y];var v=eval5(c1,c2,b[q[0]],b[q[1]],b[q[2]]);if(v>best)best=v;}}return best;}
+// Monte Carlo: equity of hero vs nOpp random hands; ties split
+function mcEquity(hero,nOpp,trials,rnd){
+  rnd=rnd||Math.random;var used=new Array(52).fill(false);hero.forEach(function(c){used[c]=true;});
+  var deck=[];for(var c=0;c<52;c++)if(!used[c])deck.push(c);
+  var need=5*nOpp+5,eq=0,n=deck.length,opp=[],board=[0,0,0,0,0];
+  for(var o=0;o<nOpp;o++)opp.push([0,0,0,0,0]);
+  for(var t=0;t<trials;t++){
+    for(var i=0;i<need;i++){var j=i+Math.floor(rnd()*(n-i));var tmp=deck[i];deck[i]=deck[j];deck[j]=tmp;}
+    var idx=0;for(o=0;o<nOpp;o++)for(i=0;i<5;i++)opp[o][i]=deck[idx++];
+    for(i=0;i<5;i++)board[i]=deck[idx++];
+    var hv=evalPLO(hero,board),win=true,ties=1;
+    for(o=0;o<nOpp;o++){var v=evalPLO(opp[o],board);if(v>hv){win=false;break;}if(v===hv)ties++;}
+    if(win)eq+=1/ties;
+  }
+  return eq/trials;
+}
+// Head-to-head: exact hands h1 vs h2, random board. Returns {w1,w2,t} fractions
+function mcH2H(h1,h2,trials,rnd){
+  rnd=rnd||Math.random;var used=new Array(52).fill(false);
+  h1.concat(h2).forEach(function(c){if(used[c])throw new Error('duplicate card '+c);used[c]=true;});
+  var deck=[];for(var c=0;c<52;c++)if(!used[c])deck.push(c);
+  var n=deck.length,b=[0,0,0,0,0],w1=0,w2=0,t=0;
+  for(var k=0;k<trials;k++){
+    for(var i=0;i<5;i++){var j=i+Math.floor(rnd()*(n-i));var tmp=deck[i];deck[i]=deck[j];deck[j]=tmp;b[i]=deck[i];}
+    var v1=evalPLO(h1,b),v2=evalPLO(h2,b);if(v1>v2)w1++;else if(v2>v1)w2++;else t++;
+  }
+  return {w1:w1/trials,w2:w2/trials,t:t/trials};
+}
+var RANKS='23456789TJQKA',SUITS='shdc';
+function parseHand(s){var out=[];for(var i=0;i<s.length;i+=2)out.push(RANKS.indexOf(s[i])*4+SUITS.indexOf(s[i+1]));return out;}
+function heuristicOld(h){
+  var br=[],score=0,rk=h.map(function(c){return c>>2;}),su=h.map(function(c){return c&3;});
+  var cnt=new Array(13).fill(0);rk.forEach(function(r){cnt[r]++;});
+  var used=[false,false,false,false,false];
+  function add(l,v){if(v){br.push([l,v]);score+=v;}}
+  // pairs
+  var prs=[];for(var r=12;r>=0;r--)if(cnt[r]>=2)prs.push(r);
+  if(prs.length){var p=prs[0],pv=p===12?8:p===11?6:p===10?5:p===9?4:p===8?3:p>=5?2:1;add('Pair '+RANKS[p]+RANKS[p],pv);
+    if(prs.length>1&&prs[1]>=8)add('Second pair '+RANKS[prs[1]]+RANKS[prs[1]],1);
+    rk.forEach(function(r,i){if(cnt[r]>=2)used[i]=true;});}
+  for(r=0;r<13;r++)if(cnt[r]>=3)add((cnt[r]===4?'Quads ':'Trips ')+RANKS[r],-3);
+  // rundown: values 1..14 (ace both)
+  var has={};rk.forEach(function(r){has[r+2]=true;if(r===12)has[1]=true;});
+  var cats=[[5,4,8,'5-card rundown'],[4,3,6,'4 connected'],[4,4,4,'4 with one gap'],[3,2,2,'3 connected'],[3,3,1,'3 with one gap']];
+  var run=null;
+  for(var ci=0;ci<cats.length&&!run;ci++){var need=cats[ci][0],span=cats[ci][1];
+    for(var top=14;top>=1+span&&!run;top--){if(!has[top]||!has[top-span])continue;var c=0,mem=[];for(var v=top-span;v<=top;v++)if(has[v]){c++;mem.push(v);}
+      if(c>=need)run={cat:cats[ci],top:top,mem:mem};}}
+  if(run){add(run.cat[3]+' ('+run.mem.slice().reverse().map(function(v){return RANKS[(v===1?14:v)-2];}).join('')+')',run.cat[2]);
+    if(run.top>=10)add('Run top card T+',2);else if(run.top<=7)add('Run top card ≤7',-2);
+    rk.forEach(function(r,i){if(run.mem.indexOf(r+2)>=0||(r===12&&run.mem.indexOf(1)>=0))used[i]=true;});}
+  // suits
+  var sc=[0,0,0,0];su.forEach(function(s){sc[s]++;});
+  var groups=[];for(var s=0;s<4;s++)if(sc[s]>=2){var mx=-1;h.forEach(function(c){if((c&3)===s&&(c>>2)>mx)mx=c>>2;});groups.push({s:s,top:mx,n:sc[s],v:mx===12?3:mx===11?1:0.5});}
+  groups.sort(function(a,b){return b.v-a.v||b.top-a.top;});
+  groups.slice(0,2).forEach(function(g,i){add((i?'Second suit ':'Suited ')+RANKS[g.top]+'-high '+'♠♥♦♣'[g.s],g.v);});
+  groups.forEach(function(g){if(g.n>=3)add(g.n+' of one suit','♠♥♦♣'[g.s]&&-1);su.forEach(function(x,i){if(x===g.s)used[i]=true;});});
+  var aceSuit={};groups.forEach(function(g){if(g.top===12)aceSuit[g.s]=true;});
+  var dang=used.filter(function(u){return !u;}).length;if(dang)add(dang+' dangler'+(dang>1?'s':''),-2*dang);
+  var low=0;h.forEach(function(c){if((c>>2)<=3&&!aceSuit[c&3])low++;});if(low)add(low+' card'+(low>1?'s':'')+' 5 or lower',-low);
+  var tier=score>=16?'Premium':score>=12?'Open any position':score>=8?'Late position':score>=5?'Limp/call in position':'Fold';
+  return {score:score,breakdown:br,tier:tier};
+}
+// New PLO5 point system (coach refit vs 4-way equity, 1 pt ~ 0.67pp). Features = old breakdown items (see plo5-weights/feat.js).
+var W={pAA:8,pKK:5.9,pQQ:5.55,pJJ:3.95,pTT:2.77,p97:0,p62:-0.46,pair2T:4.39,trips:-12,run5:3.23,run4c:0.78,run4g:0.58,run3c:-0.31,run3g:-0.31,topT:3.05,top7:-0.44,suitA:6.85,suitK:6.39,suitO:4.01,suit3:-1.56,dang:0,low:-2.05};
+function heuristicLinear(h){
+  var o=heuristicOld(h),br=[],score=0;
+  o.breakdown.forEach(function(b){var l=b[0],v=b[1],k,n=1;
+    if(l.indexOf('Pair ')===0){var p=RANKS.indexOf(l[5]);k=p===12?'pAA':p===11?'pKK':p===10?'pQQ':p===9?'pJJ':p===8?'pTT':p>=5?'p97':'p62';}
+    else if(l.indexOf('Second pair')===0)k='pair2T';
+    else if(l.indexOf('Trips')===0||l.indexOf('Quads')===0)k='trips';
+    else if(l.indexOf('5-card')===0)k='run5';else if(l.indexOf('4 connected')===0)k='run4c';else if(l.indexOf('4 with')===0)k='run4g';
+    else if(l.indexOf('3 connected')===0)k='run3c';else if(l.indexOf('3 with')===0)k='run3g';
+    else if(l==='Run top card T+')k='topT';else if(l.indexOf('Run top card')===0)k='top7';
+    else if(l.indexOf('Suited')===0||l.indexOf('Second suit')===0)k=v===3?'suitA':v===1?'suitK':'suitO';
+    else if(/of one suit/.test(l))k='suit3';else if(/dangler/.test(l)){k='dang';n=-v/2;}else if(/5 or lower/.test(l)){k='low';n=-v;l=l.replace('5 or lower','2–5 (not in A-suit)');}
+    var pts=Math.round(W[k]*n*100)/100;score+=W[k]*n;br.push([l,pts,k]);});
+  score=Math.round(score*100)/100;
+  var tier=score>=12.3?'Premium':score>=8.6?'Open any position':score>=5.5?'Late position':score>=3.4?'Limp/call in position':'Fold';
+  return {score:score,breakdown:br,tier:tier,old:o};
+}
+// MAIN SCORE: coach's "Approach 1 patched additive" + raised-pot alt (score_a1.js = plo5-approaches/score_6.js verbatim)
+var A1=(typeof A1!=='undefined'&&A1)?A1:require('./score_a1.js');
+function handStr(h){return h.map(function(c){return RANKS[c>>2]+SUITS[c&3];}).join('');}
+function heuristic(h){var r=A1.score(handStr(h));
+  return {score:r.points,percentile:r.percentile,tier:r.tier,breakdown:r.breakdown,alt:r.alt,altBreakdown:r.altBreakdown,linear:heuristicLinear(h).score};}
+// ---- info-button explanation tables (labels = score_a1.js L1 verbatim, weights read live from A1.W / W; test.js checks both) ----
+var A1_LABELS={pA:'Top pair AA',pK:'Top pair KK',pQ:'Top pair QQ',pJ:'Top pair JJ',pT:'Top pair TT',p97:'Top pair 99-77',p62:'Top pair 66-22',
+ p2hi:'Second pair TT+',p2mid:'Second pair 99-66',p2lo:'Second pair 55-22',trips:'Trips (dead 3rd card)',tripsHi:'Trips are TTT+',quads:'Quads',
+ s1A:'Best suit A-high',s1K:'Best suit K-high',s1Q:'Best suit Q/J-high',s1T:'Best suit T-8-high',s1L:'Best suit 7-high or lower',
+ s2A:'Second suit A-high',s2K:'Second suit K-high',s2Q:'Second suit Q/J-high',s2T:'Second suit T-8-high',s2L:'Second suit 7-high or lower',
+ s3:'3 cards in one suit',s4:'4+ cards in one suit',pairSuit:'Suit made only by paired cards',
+ run5:'5 ranks in a 5-rank window',run4:'4 ranks in a 5-rank window',run3:'3 ranks in a 5-rank window',runHi:'Run window tops at Q+',runLo:'Run window tops at 7 or lower',
+ hA:'Has an Ace',hK:'Has a King',hQ:'Has a Queen',hJ:'Has a Jack',hT:'Has a Ten',lowDang:'Low dangler (2-6, unpaired, unsuited, outside run)',hiDang:'Dangler 7+',
+ AAds:'AA and double-suited',tripsFH:'Trips + another pair (full-house shape)',tripsConn:'Trips rank sits inside a 3+ card run',lowTwoPair:'Two pair, both 99 or lower',AAdang:'AA + each dangler',KKds:'KK and double-suited'};
+var A1_GROUPS=[
+ ['Highest pair (trips/quads also count as their pair)',['pA','pK','pQ','pJ','pT','p97','p62']],
+ ['Second-highest pair',['p2hi','p2mid','p2lo']],
+ ['Trips, quads, two-pair shapes (per occurrence)',['trips','tripsHi','quads','tripsFH','tripsConn','lowTwoPair']],
+ ['Best suit = suited group (2+ cards) with the highest top card',['s1A','s1K','s1Q','s1T','s1L']],
+ ['Second suit = the next suited group',['s2A','s2K','s2Q','s2T','s2L']],
+ ['Suit shape (per suit)',['s3','s4','pairSuit']],
+ ['Run = most different ranks inside one 5-rank window (A plays high or low); needs 3+',['run5','run4','run3','runHi','runLo']],
+ ['High cards (once per rank held)',['hA','hK','hQ','hJ','hT']],
+ ['Danglers = cards that are unpaired, in no suited group and outside the run (per card)',['lowDang','hiDang']],
+ ['AA / KK extras',['AAds','AAdang','KKds']]];
+var LIN_LABELS=[['pAA','Pair AA'],['pKK','Pair KK'],['pQQ','Pair QQ'],['pJJ','Pair JJ'],['pTT','Pair TT'],['p97','Pair 99-77'],['p62','Pair 66-22'],['pair2T','Second pair TT+'],['trips','Trips or quads (each)'],
+ ['run5','5-card rundown'],['run4c','4 connected'],['run4g','4 with one gap'],['run3c','3 connected'],['run3g','3 with one gap'],['topT','Run top card T+'],['top7','Run top card ≤7'],
+ ['suitA','Suited, A-high (up to 2 suits)'],['suitK','Suited, K-high'],['suitO','Suited, Q-high or lower'],['suit3','3+ cards of one suit (each)'],['dang','Each dangler'],['low','Each 2–5 not in an A-high suit']];
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS};
+// ==ENDCORE==
+</script>
+<script>
+var DIST=[0.109,0.1303,0.1568,0.1614,0.166,0.1701,0.1748,0.1774,0.18,0.1823,0.1845,0.1852,0.1873,0.1887,0.1899,0.1915,0.1926,0.1937,0.1953,0.1959,0.1969,0.1979,0.1986,0.1994,0.2009,0.2018,0.2023,0.203,0.2038,0.2043,0.2054,0.2064,0.2068,0.2077,0.2083,0.2092,0.2098,0.2107,0.2112,0.212,0.2127,0.2131,0.2137,0.2144,0.2151,0.2157,0.2162,0.2169,0.2175,0.2179,0.2183,0.2188,0.2194,0.2199,0.2204,0.221,0.2217,0.2223,0.2231,0.2239,0.2244,0.2248,0.2253,0.2262,0.2268,0.2274,0.2279,0.2283,0.2289,0.2294,0.23,0.2309,0.2313,0.2318,0.2323,0.2331,0.2335,0.2341,0.2344,0.2349,0.2353,0.2362,0.2367,0.2371,0.2374,0.2379,0.2384,0.2389,0.2394,0.2397,0.2405,0.2412,0.2417,0.2419,0.2427,0.2438,0.2442,0.2449,0.2453,0.2458,0.2462,0.247,0.2473,0.2483,0.2487,0.2492,0.2499,0.2502,0.2507,0.2508,0.2516,0.2519,0.2526,0.2534,0.2537,0.2543,0.2547,0.2552,0.2556,0.2562,0.2567,0.2575,0.2578,0.2584,0.259,0.2598,0.2605,0.2612,0.262,0.2626,0.2631,0.2639,0.2647,0.2653,0.2659,0.2664,0.2672,0.268,0.2688,0.2692,0.2697,0.2703,0.2711,0.2722,0.2728,0.274,0.275,0.2757,0.2763,0.2769,0.2774,0.278,0.2787,0.2795,0.2804,0.281,0.2816,0.2824,0.2832,0.2837,0.2843,0.2853,0.2863,0.2869,0.2874,0.2882,0.2893,0.2908,0.2918,0.2928,0.2936,0.2948,0.2954,0.2964,0.2972,0.2983,0.2998,0.3009,0.3027,0.3045,0.3054,0.3062,0.3078,0.3087,0.3107,0.313,0.3144,0.3166,0.3185,0.3199,0.3232,0.3246,0.3277,0.3329,0.3359,0.3404,0.3445,0.3506,0.3578,0.3662,0.3912];
+var SYM=['♠','♥','♦','♣'],hands=[[],[],],act=0,tgt=0,suit=0,jobs=[0,0,0],workers=[],open=[false,false],res=[{},{},{}];
+var SRC=document.getElementById('core').textContent+
+ '\n;onmessage=function(e){var d=e.data,chunk=2000,done=0;if(d.h2){var w1=0,w2=0,t=0;while(done<d.n){var r=mcH2H(d.h,d.h2,chunk);w1+=r.w1*chunk;w2+=r.w2*chunk;t+=r.t*chunk;done+=chunk;postMessage({id:d.id,w1:w1/done,w2:w2/done,t:t/done,done:done,fin:done>=d.n});}return;}'+
+ 'var e4=0,e1=0;while(done<d.n){e4+=mcEquity(d.h,3,chunk)*chunk;e1+=mcEquity(d.h,1,chunk)*chunk;done+=chunk;postMessage({id:d.id,e4:e4/done,e1:e1/done,done:done,fin:done>=d.n});}}';
+var URLW=URL.createObjectURL(new Blob([SRC],{type:'text/javascript'}));
+// worker 0 = P1 equity, 1 = P2 equity, 2 = head-to-head; terminate to cancel stale work
+function run(k,msg){stop(k);var w=workers[k]=new Worker(URLW);var id=msg.id=++jobs[k];w.onmessage=function(e){if(e.data.id===jobs[k]){res[k]=e.data;paint();}};w.postMessage(msg);}
+function stop(k){jobs[k]++;res[k]={};if(workers[k]){workers[k].terminate();workers[k]=null;}}
+var $=function(id){return document.getElementById(id);};
+function rk(c){return RANKS[c>>2].replace('T','10');}
+function face(c,extra){var col=(c&3)===1||(c&3)===2?'red':'blk',r=rk(c);
+ return '<div class="cd face '+col+(extra||'')+'"><div class="cr">'+r+'<i>'+SYM[c&3]+'</i></div><div class="bs">'+SYM[c&3]+'</div><div class="big'+(r.length>1?' t':'')+'">'+r+'</div></div>';}
+function back(extra){return '<div class="cd back'+(extra||'')+'"></div>';}
+function usedBy(c){return hands[0].indexOf(c)>=0||hands[1].indexOf(c)>=0;}
+function fpc(x){return x>=99.95&&x<100?x.toFixed(3).replace(/0+$/,''):x.toFixed(1);}
+function prow(x){return '<div class="row"><span>'+x[0]+'</span><span class="'+(x[1]>0?'pos':x[1]<0?'neg':'muted')+'">'+(x[1]>0?'+':x[1]<0?'−':'')+Math.abs(x[1])+'</span></div>';}
+function sorted(h){return h.slice().sort(function(a,b){return b-a;});}
+var TC={'Premium':'#4cd964','Open any position':'#5ac8fa','Late position':'#ffd60a','Limp/call':'#ff9500','Fold':'#ff5a4f'};
+var CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg>';
+function pct(eq){var n=DIST.length-1;if(eq<=DIST[0])return 0;if(eq>=DIST[n])return 100;for(var i=1;i<=n;i++)if(DIST[i]>=eq){var f=(eq-DIST[i-1])/((DIST[i]-DIST[i-1])||1);return (i-1+f)/n*100;}}
+function f(x){return x==null||isNaN(x)?'–':(x*100).toFixed(2);}
+function sheetOpen(){return document.body.classList.contains('open-sheet');}
+function build(){
+ var s='';
+ for(var p=0;p<2;p++){var hd=hands[p],cs='';
+  for(var i=0;i<5;i++){var t=sheetOpen()&&p===act&&i===tgt?' tgt':'';cs+=hd[i]!=null?face(hd[i],t).replace('class="cd','data-p="'+p+'" data-i="'+i+'" class="cd'):back(t).replace('class="cd','data-p="'+p+'" data-i="'+i+'" class="cd');}
+  s+='<section class="pl'+(open[p]?' open':'')+'" id="pl'+p+'"><div class="pt"><h2>Player '+(p+1)+'</h2><button class="clr" data-clr="'+p+'"'+(hd.length?'':' disabled')+'>Clear</button></div>'+
+   '<div class="cards">'+cs+'</div><div id="body'+p+'"></div></section>';}
+ $('players').innerHTML=s;paint();
+}
+// fills the stats/summary/details for each player from current hands + worker results
+function paint(){
+ var full=[hands[0].length===5,hands[1].length===5],hh=full[0]&&full[1],H2=res[2];
+ for(var p=0;p<2;p++){var b=$('body'+p);if(!b)continue;
+  if(!full[p]){b.innerHTML=hands[p].length?'<div class="hint" style="padding:8px">Pick '+(5-hands[p].length)+' more card'+(hands[p].length===4?'':'s')+'</div>':'';continue;}
+  var E=res[p],w,t,q,lab;
+  if(hh){w=p?H2.w2:H2.w1;t=H2.t;q=w!=null?w+t/2:null;lab='Hi';}
+  else{w=null;t=null;q=E.e1;lab='Hi';}
+  var H=heuristic(sorted(hands[p])),pc=E.e4!=null?pct(E.e4):null;
+  var running=(hh&&!H2.fin)||!E.fin;
+  b.innerHTML='<div class="st"><span></span><span class="h">Win(%)</span><span class="h">Tie(%)</span><span class="h">Equity(%)</span>'+ib('eq',p,'Win, Tie and Equity')+'<button class="chev" data-chev="'+p+'" aria-label="details">'+CHEV+'</button>'+
+   '<span class="lb">'+lab+'</span><span class="v">'+f(w)+'</span><span class="v">'+f(t)+'</span><span class="v">'+f(q)+'</span></div>'+
+   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:#eee">'+H.alt+'</b>'+(hh?'':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
+   '<div class="det"><div class="sec sx"><span>Points '+H.score+' · percentile '+fpc(H.percentile)+'</span>'+ib('pts',p,'points')+'</div>'+(H.breakdown.length?H.breakdown.map(prow).join(''):'<div class="row"><span>No scoring features</span><span>0</span></div>')+
+   '<div class="row tot"><span>Total</span><span>'+H.score+'</span></div>'+
+   '<div class="muted">Premium ≥20 pts (top 10%) · Open ≥16 (top 25%) · Late ≥12 (top 45%) · Limp/call ≥10 (top 60%) · Fold ≤9. Percentile = share of all 2,598,960 PLO5 hands scoring fewer points.</div>'+
+   '<div class="row" style="color:#999;font-size:14px"><span>Old linear score (comparison only)</span><span class="rv">'+H.linear+ib('linear',p,'the old linear score')+'</span></div>'+
+   '<div class="sec sx"><span>vs 3-bet (raised-pot ranking) '+H.alt+'</span>'+ib('alt',p,'vs 3-bet')+'</div><div class="row"><span>Base points</span><span>'+H.score+'</span></div>'+H.altBreakdown.map(prow).join('')+
+   '<div class="row tot"><span>vs 3-bet total</span><span>'+H.alt+'</span></div><div class="muted">Ranking only, no tier: compare hands when facing a raise/3-bet from a tight range.</div>'+
+   '<div class="sec sx"><span>Equity vs random hands</span>'+ib('eqrand',p,'equity vs random hands')+'</div><div class="row"><span>vs 3 random (4-way)</span><span>'+f(E.e4)+'%</span></div><div class="row"><span>vs 1 random (HU)</span><span>'+f(E.e1)+'%</span></div>'+
+   '<div class="row"><span>Equity percentile (4-way)</span><span>'+(pc!=null?pc.toFixed(1)+'th':'–')+'</span></div>'+
+   (hh?'<div class="sec sx"><span>Head-to-head vs Player '+(2-p)+'</span>'+ib('eq',p,'head-to-head equity')+'</div><div class="row"><span>Win / Tie / Lose</span><span>'+f(w)+' / '+f(t)+' / '+f(p?H2.w1:H2.w2)+'</span></div>':'')+
+   '<div class="muted">'+(E.done||0).toLocaleString()+' trials each'+(hh?' · '+(H2.done||0).toLocaleString()+' head-to-head boards':'')+'. Percentile vs 2,000 random hands; avg 4-way equity 25%.</div></div>';}
+ $('hint').style.display=full[0]?'none':'';
+ if(typeof info!=='undefined'&&info.k)renderInfo();
+}
+function renderSheet(){
+ $('shT').textContent='Player '+(act+1)+' · '+hands[act].length+'/5';
+ var m='';for(var i=0;i<5;i++)m+=hands[act][i]!=null?face(hands[act][i],i===tgt?' tgt':''):back(i===tgt?' tgt':'');$('mini').innerHTML=m;
+ $('suits').innerHTML=SYM.map(function(x,i){return '<button class="btn'+(i===suit?' on':'')+'" data-s="'+i+'"><span class="'+(i===1||i===2?'red':'blk')+'">'+x+'</span></button>';}).join('');
+ var g='',fl=hands[act].length>=5;for(var r=12;r>=0;r--){var c=r*4+suit;g+='<button class="btn" data-c="'+c+'" '+(usedBy(c)||fl?'disabled':'')+'>'+RANKS[r].replace('T','10')+'</button>';}
+ $('grid').innerHTML=g;$('sclr').disabled=!hands[act].length;
+}
+function openSheet(p,i){act=p;tgt=Math.min(i,hands[p].length);document.body.classList.add('open-sheet');renderSheet();build();}
+function closeSheet(){document.body.classList.remove('open-sheet');build();}
+function changed(p){stop(p);stop(2);if(p===0)smFromP1();
+ if(hands[p].length===5)run(p,{h:sorted(hands[p]),n:30000});
+ if(hands[0].length===5&&hands[1].length===5)run(2,{h:sorted(hands[0]),h2:sorted(hands[1]),n:30000});
+ if(sheetOpen())renderSheet();build();}
+$('players').onclick=function(e){var c=e.target.closest('[data-p]');
+ if(c){var p=+c.dataset.p,i=+c.dataset.i;openSheet(p,i);return;}
+ var k=e.target.closest('[data-clr]');if(k){var q=+k.dataset.clr;hands[q].length=0;changed(q);return;}
+ var v=e.target.closest('[data-chev]');if(v){var z=+v.dataset.chev;open[z]=!open[z];$('pl'+z).classList.toggle('open',open[z]);}};
+$('mini').onclick=function(e){var c=e.target.closest('.cd');if(!c)return;var i=[].indexOf.call($('mini').children,c);
+ if(hands[act][i]!=null){hands[act].splice(i,1);tgt=i;changed(act);}else{tgt=hands[act].length;renderSheet();build();}};
+$('suits').onclick=function(e){var t=e.target.closest('[data-s]');if(t){suit=+t.dataset.s;renderSheet();}};
+$('grid').onclick=function(e){var t=e.target.closest('[data-c]');if(!t||t.disabled)return;var p=act;
+ hands[p].splice(Math.min(tgt,hands[p].length),0,+t.dataset.c);tgt=hands[p].length;changed(p);
+ if(hands[p].length===5)closeSheet();};
+$('done').onclick=closeSheet;$('scrim').onclick=closeSheet;
+$('sclr').onclick=function(){hands[act].length=0;tgt=0;changed(act);};
+function randFill(p){var d=[];for(var i=0;i<52;i++)if(hands[1-p].indexOf(i)<0)d.push(i);hands[p].length=0;for(i=0;i<5;i++)hands[p].push(d.splice(Math.floor(Math.random()*d.length),1)[0]);}
+$('rnd').onclick=function(){randFill(act);changed(act);closeSheet();};
+$('rall').onclick=function(){randFill(0);hands[1].length=0;randFill(1);changed(0);changed(1);};
+// ---- set-mining break-even panel (setmine.json generated from plo5-setmine/report.md) ----
+var SM={"source":"plo5-setmine/report.md","cols":["R1","R2","R3","R5","T1","T3"],"tables":{"EV-2a":{"22":[[58.3,0.3],[33.3,0.2],[26.7,0.2],[23.3,0.2],[80.1,0.6],[30.7,0.2]],"33":[[51.1,0.3],[29.5,0.1],[22.8,0.1],[19.4,0.1],[72.7,0.5],[28.6,0.2]],"44":[[45.4,0.2],[25.9,0.1],[20,0.1],[16.1,0.1],[68.8,0.5],[26.1,0.2]],"55":[[41,0.2],[23.1,0.1],[17.6,0.1],[13.6,0.1],[63.9,0.4],[24.4,0.1]],"66":[[37.5,0.1],[21,0.1],[15.5,0.1],[11.3,0],[59.5,0.4],[22.8,0.1]],"77":[[35.4,0.1],[19,0.1],[13.8,0],[9.6,0],[56.1,0.3],[20.9,0.1]],"88":[[32.8,0.1],[17.6,0.1],[12.4,0],[8.4,0],[52.5,0.3],[19.1,0.1]],"99":[[31.3,0.1],[16.5,0],[11.6,0],[7.5,0],[48.8,0.3],[17.3,0.1]],"TT":[[29.6,0.1],[15.4,0],[10.7,0],[6.8,0],[44.6,0.2],[15.7,0.1]],"JJ":[[28.7,0.1],[14.6,0],[9.8,0],[6,0],[40.3,0.2],[13.3,0]],"QQ":[[27.7,0.1],[13.6,0],[9,0],[5.2,0],[35.5,0.1],[11.1,0]],"KK":[[26.5,0.1],[12.8,0],[8.1,0],[4.5,0],[29.9,0.1],[8.9,0]],"AA":[[25.3,0.1],[12,0],[7.6,0],[4,0],[22.9,0.1],[6.9,0]]},"EV-3a":{"22":[[58.3,0.3],[37.9,0.2],[30.8,0.2],[22.5,0.1],[80.1,0.6],[41.9,0.3]],"33":[[51.1,0.3],[33.7,0.2],[26.9,0.1],[19.7,0.1],[72.7,0.5],[38.4,0.2]],"44":[[45.4,0.2],[29.9,0.1],[24.4,0.1],[17.7,0.1],[68.8,0.5],[35.1,0.2]],"55":[[41,0.2],[27.2,0.1],[22.2,0.1],[16.2,0.1],[63.9,0.4],[32.8,0.2]],"66":[[37.5,0.1],[25.1,0.1],[20.3,0.1],[14.6,0.1],[59.5,0.4],[30.2,0.1]],"77":[[35.4,0.1],[23.1,0.1],[18.6,0.1],[13.2,0],[56.1,0.3],[28.7,0.1]],"88":[[32.8,0.1],[21.6,0.1],[17.3,0.1],[12.2,0],[52.5,0.3],[27,0.1]],"99":[[31.3,0.1],[20.5,0.1],[16.3,0],[11.4,0],[48.8,0.3],[25.2,0.1]],"TT":[[29.6,0.1],[19.2,0.1],[15.3,0],[10.7,0],[44.6,0.2],[22.8,0.1]],"JJ":[[28.7,0.1],[18.3,0],[14.3,0],[9.6,0],[40.3,0.2],[20,0.1]],"QQ":[[27.7,0.1],[17.2,0],[13.2,0],[8.6,0],[35.5,0.1],[17.2,0.1]],"KK":[[26.5,0.1],[16,0],[12,0],[7.6,0],[29.9,0.1],[14,0]],"AA":[[25.3,0.1],[15.1,0],[11.3,0],[7,0],[22.9,0.1],[11,0]]},"EV-2b":{"22":[[51.7,0.3],[28.5,0.1],[22.1,0.1],[17.8,0.1],[62.2,0.4],[23.3,0.1]],"33":[[46.4,0.2],[26.1,0.1],[19.6,0.1],[15.2,0.1],[59.6,0.4],[22,0.1]],"44":[[42.1,0.2],[23.6,0.1],[17.5,0.1],[13.1,0.1],[56.3,0.3],[21.2,0.1]],"55":[[38.3,0.2],[21.2,0.1],[15.6,0.1],[11.2,0],[53.4,0.3],[20,0.1]],"66":[[34.4,0.1],[18.6,0.1],[13.3,0],[9.2,0],[50.5,0.3],[18.4,0.1]],"77":[[31.3,0.1],[16.4,0],[11.7,0],[7.8,0],[46.4,0.2],[16.9,0.1]],"88":[[29.2,0.1],[15.2,0],[10.6,0],[6.8,0],[43,0.2],[15,0.1]],"99":[[27.5,0.1],[14.1,0],[9.7,0],[6,0],[39.2,0.2],[13.5,0]],"TT":[[26.8,0.1],[13.8,0],[9.4,0],[5.9,0],[37.9,0.2],[13,0]],"JJ":[[26.8,0.1],[13.5,0],[9.1,0],[5.4,0],[35.7,0.1],[11.8,0]],"QQ":[[26.4,0.1],[13,0],[8.5,0],[4.9,0],[33,0.1],[10.4,0]],"KK":[[26,0.1],[12.6,0],[8.1,0],[4.4,0],[29.5,0.1],[8.8,0]],"AA":[[25.3,0.1],[12,0],[7.5,0],[4,0],[23,0.1],[6.9,0]]},"EV-3b":{"22":[[51.7,0.3],[32.9,0.1],[26.7,0.1],[19.4,0.1],[62.2,0.4],[32.7,0.2]],"33":[[46.4,0.2],[30.4,0.1],[24.4,0.1],[17.6,0.1],[59.6,0.4],[30.8,0.2]],"44":[[42.1,0.2],[28,0.1],[22.5,0.1],[16.5,0.1],[56.3,0.3],[29.6,0.1]],"55":[[38.3,0.2],[25.8,0.1],[21,0.1],[15.3,0.1],[53.4,0.3],[28.3,0.1]],"66":[[34.4,0.1],[22.8,0.1],[18.5,0.1],[13.2,0],[50.5,0.3],[25.7,0.1]],"77":[[31.3,0.1],[20.4,0.1],[16.4,0],[11.4,0],[46.4,0.2],[23.9,0.1]],"88":[[29.2,0.1],[18.9,0.1],[15.1,0],[10.5,0],[43,0.2],[21.7,0.1]],"99":[[27.5,0.1],[17.7,0],[14,0],[9.6,0],[39.2,0.2],[20.1,0.1]],"TT":[[26.8,0.1],[17.4,0],[13.7,0],[9.4,0],[37.9,0.2],[19.2,0.1]],"JJ":[[26.8,0.1],[17,0],[13.2,0],[8.9,0],[35.7,0.1],[17.8,0.1]],"QQ":[[26.4,0.1],[16.4,0],[12.5,0],[8.1,0],[33,0.1],[16,0]],"KK":[[26,0.1],[15.8,0],[11.9,0],[7.5,0],[29.5,0.1],[13.7,0]],"AA":[[25.3,0.1],[15.1,0],[11.2,0],[6.9,0],[23,0.1],[11,0]]}}},SMP=['AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22'],
+ SMC=['HU vs random','3-way','4-way','6-way','HU vs opener','4-way vs 3 openers'],smPairFromP1=null;
+$('smP').innerHTML=SMP.map(function(p){return '<option>'+p+'</option>';}).join('');
+$('smC').innerHTML=SMC.map(function(c,i){return '<option value="'+i+'">'+c+' ('+SM.cols[i]+')</option>';}).join('');
+$('smC').value='2';
+function smUpdate(){var t=SM.tables[$('smE').value+$('smH').value],cell=t[$('smP').value][+$('smC').value],y=parseFloat($('smY').value),v=$('smV');
+ $('smN').textContent=cell[0].toFixed(1)+'×';
+ if(isNaN(y)){v.textContent='Enter Y';v.style.background='#555';}else{var ok=y>=cell[0];v.textContent=ok?'Profitable':'Avoid';v.style.background=ok?'#4cd964':'#ff5a4f';}
+ $('smX').textContent='±'+cell[1].toFixed(1)+' SE'+(smPairFromP1===$('smP').value?' · pair taken from Player 1':'')+(isNaN(y)?'':' · your Y = '+y+'×');if(typeof info!=='undefined'&&info.k)renderInfo();}
+function smFromP1(){var cnt={},best=-1;hands[0].forEach(function(c){var r=c>>2;cnt[r]=(cnt[r]||0)+1;if(cnt[r]>=2&&r>best)best=r;});
+ if(best>=0){var p=RANKS[best]+RANKS[best];smPairFromP1=p;$('smP').value=p;smUpdate();}}
+['smP','smC','smE','smH'].forEach(function(id){$(id).onchange=smUpdate;});$('smY').oninput=smUpdate;
+$('smt').onclick=function(){$('sm').classList.toggle('open');};
+// ---- info (i) buttons: explanation bottom sheet. Numbers come from the live code/tables (A1.*, W, SM), not hard-coded copies ----
+function ib(k,p,lab){return '<button class="ib" data-info="'+k+'"'+(p!=null?' data-ip="'+p+'"':'')+' aria-label="How '+lab+' is calculated"><span>i</span></button>';}
+var info={k:null,p:0};
+function sgn(x){return x>0?'+'+x:x<0?'−'+Math.abs(x):'0';}
+function T(head,rows,wrap){return '<table class="it">'+(head?'<tr>'+head.map(function(h,i){return '<th'+(i&&!wrap?' class="n"':'')+'>'+h+'</th>';}).join('')+'</tr>':'')+
+ rows.map(function(r){return '<tr'+(r.c?' class="'+r.c+'"':'')+'>'+r.v.map(function(x,i){return '<td'+(i&&!wrap?' class="n"':'')+(r.span&&!i?' colspan="'+r.span+'"':'')+'>'+x+'</td>';}).join('')+'</tr>';}).join('')+'</table>';}
+function pf(x){return x==null||isNaN(x)?'–':(x*100).toFixed(2)+'%';}
+function se(q,n){return n?(Math.sqrt(q*(1-q)/n)*100).toFixed(2):'–';}
+function curH(p){return hands[p].length===5?heuristic(sorted(hands[p])):null;}
+function minPts(cut){for(var x=A1.MINP;x<=A1.MAXP;x++)if(A1.PCT[x]>=cut)return x;}
+var TIERS=[['Premium',90],['Open any position',75],['Late position',55],['Limp/call',40],['Fold',0]];
+function noHand(p){return '<p>Fill all 5 cards for Player '+(p+1)+' to see this hand’s own numbers here.</p>';}
+var INFO={
+eq:function(p){var hh=hands[0].length===5&&hands[1].length===5,E=res[p]||{},H2=res[2]||{},s='';
+ if(hh){var w=p?H2.w2:H2.w1,l=p?H2.w1:H2.w2,t=H2.t,n=H2.done||0;
+  s+='<p><b>Head-to-head, all-in preflop.</b> Player 1’s exact hand vs Player 2’s exact hand. The app deals <b>30,000</b> random 5-card boards from the 42 unseen cards (Monte Carlo) and compares the best high hand each player makes using <b>exactly 2 hole cards + 3 board cards</b>.</p>'+
+  T(['Player '+(p+1),'This hand'],[{v:['<b>Win</b> = share of boards won outright',pf(w)]},{v:['<b>Tie</b> = share of boards that split the pot',pf(t)]},{v:['Lose (shown in details)',pf(l)]}])+
+  '<div class="fx">Equity = Win + ½ × Tie<br>= '+f(w)+' + '+f(t)+' ÷ 2 = <b>'+f(w!=null?w+t/2:null)+'%</b></div>'+
+  '<p>Equity is your share of the pot if all the money went in now. Boards done: '+n.toLocaleString()+' of 30,000'+(H2.fin?'':' (still running – numbers update every 2,000 boards)')+'. Precision: about ±'+se(w!=null?w+t/2:.5,n)+' points (1 standard error).</p>'+
+  '<p class="muted">“Hi” = high-hand only. No betting, no folding: pure showdown equity.</p>';}
+ else if(hands[p].length===5){var q=E.e1;
+  s+='<p><b>Win and Tie show “–”</b> because there is no opponent hand yet. Fill the other player for a head-to-head.</p>'+
+  '<p><b>Equity = all-in preflop equity vs 1 random hand.</b> Each Monte Carlo trial deals a random 5-card opponent hand and a random 5-card board from the unseen cards. Best hand uses exactly 2 hole + 3 board cards. Win counts 1, a tie counts ½.</p>'+
+  '<div class="fx">Equity = (wins + ½ × ties) ÷ trials = <b>'+pf(q)+'</b><br>'+(E.done||0).toLocaleString()+' of 30,000 trials'+(E.fin?'':' (running)')+' · ±'+se(q!=null?q:.5,E.done)+' pts (1 SE)</div>'+
+  '<p>The details panel also shows equity vs 3 random hands (4-way), from a separate 30,000 trials.</p>';}
+ else s+=noHand(p);
+ return {t:'Win / Tie / Equity',h:s};},
+score:function(p){var H=curH(p),s='';
+ s+='<p>The line under the equity numbers reads: <b>tier · points · percentile · vs 3-bet</b>. All four come from the <b>Approach 1</b> point system (“patched additive”), not from the Monte Carlo equity.</p>';
+ if(H){var adj=H.altBreakdown.map(function(x){return ' '+sgn(x[1]).replace('+','+ ').replace('−','− ');}).join('');
+  s+='<div class="fx">'+H.score+' pts → '+fpc(H.percentile)+' pct → <b>'+H.tier+'</b><br>vs 3-bet = '+H.score+adj+' = <b>'+H.alt+'</b></div>';}
+ else s+=noHand(p);
+ s+='<h4>1 · Points</h4><p>Add up a fixed number of points for each feature the hand has (pairs, suits, run, high cards, danglers…). Range '+A1.MINP+' to +'+A1.MAXP+'. Tap ⓘ next to “Points” in the details panel for every feature and its weight.</p>'+
+ '<h4>2 · Percentile (pct)</h4><p>Share of all <b>2,598,960</b> possible PLO5 hands that score <b>fewer</b> points (hands on the same points count half). Exact count of every hand, not a sample.'+(H?' This hand: '+H.score+' pts → '+fpc(H.percentile)+'.':'')+'</p>'+
+ '<h4>3 · Tier (badge)</h4><p>Set by percentile:</p>'+
+ T(['Tier','Percentile','Points'],TIERS.map(function(t,i){var mp=t[1]?minPts(t[1]):null,nx=i?minPts(TIERS[i-1][1]):null;
+  return {c:H&&H.tier===t[0]?'hit':'',v:['<span class="tag" style="background:'+TC[t[0]]+'">'+t[0]+'</span>',t[1]?'≥ '+t[1]+'th':'< 40th',mp!=null?'≥ '+mp:'≤ '+(minPts(40)-1)]};}))+
+ '<h4>4 · vs 3-bet</h4><p>Points + three raised-pot adjustments: AA '+sgn(A1.ADJ.AA)+', double-suited '+sgn(A1.ADJ.DS)+', best pair TT or lower '+sgn(A1.ADJ.SP)+'. Use it to <b>compare hands when facing a raise / 3-bet from a tight range</b>. It is a ranking only: no tier, no percentile. Tap ⓘ on the vs 3-bet heading in details for more.</p>'+
+ '<h4>How the weights were set</h4><p>Integer weights were fitted on simulated equities of ~43,000 hands to a blend of <b>½ 4-way + ¼ 3-way + ¼ heads-up</b> equity vs random hands, then checked on 3,000 fresh hands (source: plo5-approaches/report.md). Points rank hands; they are not equity. On that holdout the tier matched the hand’s true 4-way equity tier 68.7% of the time (96.6% within one tier).</p>';
+ return {t:'Tier · pts · pct · vs 3-bet',h:s};},
+pts:function(p){var H=curH(p),got={},s='';
+ if(H)H.breakdown.forEach(function(b){got[b[0].replace(/ x\d+$/,'')]=b;});
+ s+='<p><b>Approach 1 points</b> = sum of every line below that the hand has. Groups marked “per …” count once per occurrence. Green rows are this hand.</p>'+(H?'<div class="fx">This hand: '+(H.breakdown.length?H.breakdown.map(function(b,i){return (i?(b[1]<0?' − ':' + '):(b[1]<0?'−':''))+Math.abs(b[1]);}).join(''):'0')+' = <b>'+H.score+' pts</b></div>':'');
+ var rows=[];A1_GROUPS.forEach(function(g){rows.push({c:'gh',span:2,v:[g[0]]});g[1].forEach(function(k){var w=A1.W[k]||0,lab=A1_LABELS[k],b=got[lab];
+  rows.push({c:b?'hit':w?'':'dim',v:[lab+(w?'':' <span style="font-size:11px">(fitted to 0)</span>'),(b&&b[0]!==lab?b[0].slice(lab.length).trim()+' → '+sgn(b[1]):sgn(w))]});});});
+ s+=T(['Feature','Points'],rows)+
+ '<p class="muted">Examples: the “Dangler 7+” +1 acts as a small credit for a high loose card. Trips are scored as the pair (e.g. Top pair AA) plus “Trips” '+sgn(A1.W.trips)+'. Second suit only exists if the hand has two suited groups (that also triggers “double-suited”).</p>'+
+ '<h4>Percentile &amp; tier</h4><p>Percentile = share of all 2,598,960 hands with fewer points (ties half), from an exact count. Tier: Premium ≥'+minPts(90)+' pts (≥90th), Open ≥'+minPts(75)+' (≥75th), Late ≥'+minPts(55)+' (≥55th), Limp/call ≥'+minPts(40)+' (≥40th), else Fold.</p>';
+ return {t:'Points breakdown (Approach 1)',h:s};},
+alt:function(p){var H=curH(p),s='';
+ s+='<p><b>vs 3-bet = Approach 1 points + raised-pot adjustments.</b> Use it when you face a raise or 3-bet from a tight range: AA and double-suited hands gain, small-pair hands lose.</p>'+
+ T(['Adjustment','Points'],[{v:['Top pair is AA',sgn(A1.ADJ.AA)]},{v:['Double-suited (has a second suited group)',sgn(A1.ADJ.DS)]},{v:['Best pair is TT or lower',sgn(A1.ADJ.SP)]}]);
+ if(H){s+='<div class="fx">'+H.score+' (points)'+H.altBreakdown.map(function(x){return '<br>'+sgn(x[1])+' '+x[0].replace('Raised pot: ','');}).join('')+'<br>= <b>'+H.alt+'</b></div>';}
+ s+='<p>The three rules were picked to rank hands best by <b>heads-up equity vs an AA + 3 random cards range</b>, while costing almost nothing (≤0.01 rank correlation) vs a top-25% opener range (plo5-approaches/report.md).</p>'+
+ '<p><b>Ranking only.</b> No tier and no percentile. Only compare it to other hands’ vs 3-bet numbers, not to normal points or tiers.</p>';
+ return {t:'vs 3-bet (raised-pot ranking)',h:s};},
+linear:function(p){var s='',L=hands[p].length===5?heuristicLinear(sorted(hands[p])):null;
+ s+='<p>The <b>previous point system</b>, shown only for comparison. It does not set the tier or percentile.</p><p>It uses the original rule features (pairs, rundowns, suits, danglers, low cards), with weights refitted by least squares to <b>4-way all-in equity</b> on 24,000 random hands (2,000 trials each). About 1 point ≈ 0.67 percentage points of 4-way equity.</p>';
+ if(L)s+=T(['This hand','Points'],L.breakdown.map(function(b){return {c:'hit',v:[b[0],sgn(b[1])]};}).concat([{v:['<b>Total</b>','<b>'+L.score+'</b> · '+L.tier]}]));
+ s+='<h4>Weights</h4>'+T(['Feature','Points'],LIN_LABELS.map(function(x){return {c:W[x[0]]?'':'dim',v:[x[1],sgn(W[x[0]])]};}))+
+ '<p class="muted">Only the highest pair scores (plus a second pair TT+). Only the best run category counts. Old tiers: Premium ≥12.3, Open ≥8.6, Late ≥5.5, Limp/call ≥3.4, else Fold.</p>';
+ return {t:'Old linear score',h:s};},
+eqrand:function(p){var E=res[p]||{},s='',pc=E.e4!=null?pct(E.e4):null;
+ s+='<p>All-in preflop equity of this hand vs <b>random</b> hands, via Monte Carlo. Each trial deals random opponent hands and a random board from the unseen cards. Best hand = exactly 2 hole + 3 board cards. Win counts 1. A tie among k players counts 1/k.</p>'+
+ T(['','This hand'],[{v:['vs 3 random (4-way)',pf(E.e4)]},{v:['vs 1 random (heads-up)',pf(E.e1)]},{v:['Trials (each)',(E.done||0).toLocaleString()+' / 30,000']}])+
+ '<p>A random hand averages 25% 4-way and 50% heads-up, so above those is better than average.</p>'+
+ '<h4>Equity percentile (4-way)</h4><p>Where this hand’s 4-way equity sits among <b>2,000 random hands</b> (2,000 trials each). These are stored as 201 cut points, one every 0.5 percentile, and the app interpolates between them.'+(pc!=null?' This hand: '+pf(E.e4)+' → <b>'+pc.toFixed(1)+'th</b>.':'')+'</p>'+
+ '<p class="muted">This is a measured-equity percentile. The “pct” on the score line is a different thing: the points percentile over all 2,598,960 hands.</p>';
+ return {t:'Equity vs random hands',h:s};},
+sm:function(){var c=smCell(),s='';
+ s+='<p>Is calling preflop to <b>set-mine</b> a pocket pair profitable on set value alone?</p>'+
+ '<h4>The model</h4><p>You call <b>C</b>. <b>S</b> = effective stack still behind after the call. You flop a set or better <b>12.488%</b> of the time (1 in 8, for any pair). Miss → fold, lose C. Hit → win the preflop pot plus whatever the payoff model gets in (see Payoff model ⓘ). Side-card value, rake, blinds, position and turn/river play are ignored. That makes it conservative for good hands.</p>'+
+ '<div class="fx">Break-even: m* = ((1−p)/p − Ā) / B̄<br>p = 0.12488 · Ā = avg net per hit from the preflop money, in units of C · B̄ = avg profit per unit of stack S when stacks go in<br>Profitable if your Y ≥ m*</div>'+
+ '<h4>Current selection</h4>'+T(null,[{v:['Pair · situation',c.pair+' · '+SMC[c.ci]+' ('+SM.cols[c.ci]+')']},{v:['Payoff · hero hand',c.ev+' · '+(c.hm==='a'?'pair + 3 random':'typical playable')]},{v:['Needed S/C (m*)','<b>'+c.m.toFixed(1)+'×</b> ±'+c.se.toFixed(1)]},{v:['Your Y',isNaN(c.y)?'–':c.y+'× → <b>'+(c.y>=c.m?'Profitable':'Avoid')+'</b>']}])+
+ T(['Same spot, other settings','m*'],[['EV-3','a'],['EV-3','b'],['EV-2','a'],['EV-2','b']].map(function(x){return {c:x[0]===c.ev&&x[1]===c.hm?'hit':'',v:[x[0]+' · '+(x[1]==='a'?'pair + 3 random':'typical playable'),SM.tables[x[0]+x[1]][c.pair][c.ci][0].toFixed(1)+'×']};}))+
+ '<h4>Data</h4><p>Simulation: 13 pairs × 6 situations × 2 hero-hand models, <b>500,000 set flops per cell</b>, 4 turn+river runouts each. Every 5-card hand is evaluated as 2 hole + 3 board. Tables are in <b>setmine.json</b>, generated by gen_setmine.js from <b>plo5-setmine/report.md</b>. “±” = 1 standard error.</p>';
+ return {t:'Set-mining break-even',h:s};},
+smY:function(){var c=smCell();return {t:'Stack behind / call (Y)',h:'<p><b>Y = S ÷ C</b>: the effective stack still behind <b>after</b> you call, divided by what the call costs you. It is your implied-odds multiple.</p>'+
+ T(['Example','Y'],[{v:['100bb deep, calling a 3.5bb pot-open','≈ 27']},{v:['100bb, calling a 3-bet costing ~8bb more','≈ 11']},{v:['200bb deep, calling a 3.5bb open','≈ 56']},{v:['Limping 1bb at 100bb','≈ 99']}])+
+ '<p>The verdict is <b>Profitable</b> when Y ≥ the needed S/C, otherwise <b>Avoid</b>. '+(isNaN(c.y)?'':'Now: Y = '+c.y+' vs needed '+c.m.toFixed(1)+'.')+'</p>'};},
+smC:function(){var c=smCell(),t=SM.tables[c.ev+c.hm][c.pair];
+ return {t:'Table situation',h:'<p>Who you are up against when you flop the set. Opponents are dealt from the cards left after your hand and the flop.</p>'+
+ T(['Situation',c.pair+' m*'],SMC.map(function(n,i){var d=['1 random hand','2 random hands','3 random hands','5 random hands','1 hand from an opener range','3 hands from the opener range'][i];
+  return {c:i===c.ci?'hit':'',v:['<b>'+n+'</b> ('+SM.cols[i]+')<br><span style="color:#999">'+d+'</span>',t[i][0].toFixed(1)+'×']};}))+
+ '<p><b>Opener range</b> = hands scoring ≥12 points on the <i>earlier</i> recalibrated score (plo5-recal), about the top 25.7% of hands. That is not the Approach 1 points shown above. m* values are for '+c.ev+', '+(c.hm==='a'?'pair + 3 random':'typical playable')+'.</p>'};},
+smE:function(){var c=smCell(),a=SM.tables['EV-3'+c.hm][c.pair],b=SM.tables['EV-2'+c.hm][c.pair];
+ return {t:'Payoff model',h:'<p>How much you get paid when you flop the set. Only opponents with a <b>paying hand</b> on the flop put money in. A paying hand is two pair or better, a flush draw, or a straight draw with 2+ completing ranks (8+ outs).</p>'+
+ T(['Model','What happens'],[{c:c.ev==='EV-3'?'hit':'',v:['<b>EV-3</b> (main)','Exactly <b>one</b> paying opponent (picked at random) stacks off heads-up; the rest fold.']},{c:c.ev==='EV-2'?'hit':'',v:['<b>EV-2</b> (all pay)','<b>Every</b> paying opponent stacks off; the rest fold.']}],1)+
+ '<p>In both, if nobody pays you just win the preflop pot. EV-2 is more optimistic multiway, so it needs a lower Y. Heads-up the two are identical. EV-3 is the realistic default.</p>'+
+ T(['Situation',c.pair+' EV-3','EV-2'],SMC.map(function(n,i){return {c:i===c.ci?'hit':'',v:[n,a[i][0].toFixed(1)+'×',b[i][0].toFixed(1)+'×']};}))};},
+smH:function(){var c=smCell(),a=SM.tables[c.ev+'a'][c.pair][c.ci][0],b=SM.tables[c.ev+'b'][c.pair][c.ci][0];
+ return {t:'Hero hand',h:'<p>Which side cards you hold next to the pair. That changes card removal, set-over-set risk and how often you get paid.</p>'+
+ T(['Model','m* here'],[{c:c.hm==='a'?'hit':'',v:['<b>Pair + 3 random</b>: the pair plus 3 random cards of other ranks (no trips; a second pair is allowed)',a.toFixed(1)+'×']},{c:c.hm==='b'?'hit':'',v:['<b>Typical playable</b>: pair + 3 side cards where the whole hand scores ≥12 pts on the <i>earlier</i> recalibrated score (plo5-recal), not the Approach 1 points',b.toFixed(1)+'×']}])+
+ '<p>Either way it is still pure set-mining: misses fold and side-card equity is ignored. Few small pairs qualify as “typical playable” (7.5% of 22–55 hands vs 98.5% of AA).</p><p class="muted">'+c.pair+', '+SMC[c.ci]+', '+c.ev+'.</p>'};},
+smN:function(){var c=smCell();return {t:'Needed S/C',h:'<p><b>Needed S/C (m*)</b> = the smallest Y = stack behind ÷ call at which set-mining this pair breaks even, for the selected situation, payoff model and hero hand.</p>'+
+ '<div class="fx">m* = ((1−p)/p − Ā) / B̄, p = 12.488%<br>(1−p)/p ≈ 7.0: you need to win back 7 missed calls per hit</div>'+
+ '<p>Per hit you net Ā·C + B̄·S. Ā = average net from the preflop money (in calls). B̄ = average profit per unit of stack when stacks go in. Both are measured in the simulation. “±” is 1 standard error.</p>'+
+ T(null,[{v:['This cell',c.pair+' · '+SMC[c.ci]+' · '+c.ev+' · '+(c.hm==='a'?'pair + 3 random':'typical playable')]},{v:['m*','<b>'+c.m.toFixed(1)+'×</b> ±'+c.se.toFixed(1)]},{v:['Verdict',isNaN(c.y)?'Enter Y':(c.y>=c.m?'Y '+c.y+' ≥ m* → Profitable':'Y '+c.y+' < m* → Avoid')]}])};}
+};
+function smCell(){var ev=$('smE').value,hm=$('smH').value,pair=$('smP').value,ci=+$('smC').value,cell=SM.tables[ev+hm][pair][ci];
+ return {ev:ev,hm:hm,pair:pair,ci:ci,m:cell[0],se:cell[1],y:parseFloat($('smY').value)};}
+function renderInfo(){if(!info.k)return;var r=INFO[info.k](info.p),b=$('iB'),st=b.scrollTop;$('iT').textContent=r.t;b.innerHTML=r.h;b.scrollTop=st;}
+function openInfo(k,p){info.k=k;info.p=p||0;renderInfo();$('iB').scrollTop=0;document.body.classList.add('open-info');}
+function closeInfo(){info.k=null;document.body.classList.remove('open-info');}
+// capture phase: an (i) tap never reaches the collapsible header, chevron, card picker or a <label>'s select
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-info]');if(!t)return;
+ e.stopPropagation();e.preventDefault();openInfo(t.dataset.info,t.dataset.ip!=null?+t.dataset.ip:0);},true);
+$('iscrim').onclick=closeInfo;$('iX').onclick=closeInfo;
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(info.k)closeInfo();else if(sheetOpen())closeSheet();}});
+smUpdate();
+build();
+</script></body></html>
