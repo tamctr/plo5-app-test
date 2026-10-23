@@ -87,6 +87,11 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .seg{display:flex;background:#333;border:1px solid #555;border-radius:8px;padding:2px;gap:2px}
 .seg button{width:40px;height:34px;border:none;border-radius:6px;background:none;color:#ddd;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
 .seg button.on{background:#ff9500;color:#000}
+/* facing a 3-bet: selectors, action */
+.v3c{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}.seg.sw button{width:auto;min-width:56px;padding:0 10px;font-size:14px}
+.tog{width:52px;height:32px;border-radius:16px;border:1px solid #555;background:#333;position:relative;cursor:pointer;padding:0}.tog i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#aaa;transition:left .15s}
+.tog.on{background:#ff9500;border-color:#ff9500}.tog.on i{left:23px;background:#000}
+.v3a{display:flex;align-items:center;gap:14px;margin:10px 0 6px}.act{font-size:34px;font-weight:800;letter-spacing:.5px;min-width:96px}.v3m{font-size:14px;color:#aaa;line-height:1.35}.v3m b{color:#eee;font-size:17px}
 /* info bottom sheet */
 #iscrim{z-index:20}.isheet{z-index:21;padding-top:6px}
 .open-info #iscrim{opacity:1;pointer-events:auto}.open-info #isheet{transform:none}
@@ -188,6 +193,98 @@ function rp(hand){const [r,s]=parse(hand);const f=feat1(r,s);const a={AA:f.pA,DS
 function score(hand){const {points,breakdown}=pts(hand);const R2=rp(hand);const percentile=PCT[points]!==undefined?PCT[points]:(points<MINP?0:100);return {points,percentile,tier:tier(percentile),breakdown,alt:points+R2.adj,altBreakdown:R2.bd};}
 const MINP=-37,MAXP=45;
 module.exports={score,rp,ADJ,pts,W,WC,PCT,CUT,MINP,MAXP,tier,parse};
+
+;return module.exports;})();
+var S6C=(function(){var module={exports:{}};
+// PLO5 preflop points — HYBRID: Approach 1 (patched additive) for opening/entering + raised-pot adjustment (3 rules)
+// alt = raised-pot points: use when facing a raise/3-bet from a tight range (fitted to HU equity vs top-25% openers and vs AA+3 random).
+// Built 2026-10-21 by /workspace/plo5-approaches/build.py. Weights fitted on simulated equities (see report.md).
+// score(hand) -> {points, percentile, tier, breakdown}. hand: "AsAhKsQhJd" | "As Ah Ks Qh Jd" | array of card strings.
+// percentile = share of all 2,598,960 PLO5 hands scoring fewer points (ties count half), exact enumeration.
+// shared helpers (inlined into each scorer)
+const R='23456789TJQKA',S='shdc';
+function parse(h){if(Array.isArray(h))h=h.join('');h=h.replace(/[\s,]/g,'');if(h.length!==10)throw new Error('need 5 cards');
+ const r=[],s=[];for(let i=0;i<10;i+=2){const a=R.indexOf(h[i].toUpperCase()),b=S.indexOf(h[i+1].toLowerCase());if(a<0||b<0)throw new Error('bad card '+h.substr(i,2));r.push(a);s.push(b);}
+ if(new Set(r.map((x,i)=>x*4+s[i])).size!==5)throw new Error('duplicate card');return [r,s];}
+function info(r,s){const n=r.length,cnt=Array(13).fill(0);r.forEach(x=>cnt[x]++);
+ const prs=[];for(let x=12;x>=0;x--)if(cnt[x]>=2)prs.push(x);
+ const groups=[];for(let su=0;su<4;su++){const m=[];for(let i=0;i<n;i++)if(s[i]===su)m.push(i);if(m.length>=2){let top=-1;m.forEach(i=>{if(r[i]>top)top=r[i];});groups.push({su,top,n:m.length,m});}}
+ groups.sort((a,b)=>b.top-a.top||b.n-a.n);
+ // best 5-rank window (ace plays 1 and 14); ties -> higher window
+ const has=new Set(r.map(x=>x+2));if(cnt[12])has.add(1);let best=0,bw=0;
+ for(let lo=10;lo>=1;lo--){let k=0;for(let v=lo;v<lo+5;v++)if(has.has(v))k++;if(k>best){best=k;bw=lo;}}
+ const inWin=i=>{const v=r[i]+2;return (v>=bw&&v<bw+5)||(r[i]===12&&bw===1);};
+ return {cnt,prs,groups,best,bw,inWin};}
+function plevel(p){return p===12?'A':p===11?'K':p===10?'Q':p===9?'J':p===8?'T':p>=5?'97':'62';}
+
+// Approach 1: patched additive
+const F1=['pA','pK','pQ','pJ','pT','p97','p62','p2hi','p2mid','p2lo','trips','tripsHi','quads',
+ 's1A','s1K','s1Q','s1T','s1L','s2A','s2K','s2Q','s2T','s2L','s3','s4','pairSuit',
+ 'run5','run4','run3','runHi','runLo','hA','hK','hQ','hJ','hT','lowDang','hiDang','AAds','AAdang','KKds','tripsFH','lowTwoPair','tripsConn'];
+const L1={pA:'Top pair AA',pK:'Top pair KK',pQ:'Top pair QQ',pJ:'Top pair JJ',pT:'Top pair TT',p97:'Top pair 99-77',p62:'Top pair 66-22',
+ p2hi:'Second pair TT+',p2mid:'Second pair 99-66',p2lo:'Second pair 55-22',trips:'Trips (dead 3rd card)',tripsHi:'Trips are TTT+',quads:'Quads',
+ s1A:'Best suit A-high',s1K:'Best suit K-high',s1Q:'Best suit Q/J-high',s1T:'Best suit T-8-high',s1L:'Best suit 7-high or lower',
+ s2A:'Second suit A-high',s2K:'Second suit K-high',s2Q:'Second suit Q/J-high',s2T:'Second suit T-8-high',s2L:'Second suit 7-high or lower',
+ s3:'3 cards in one suit',s4:'4+ cards in one suit',pairSuit:'Suit made only by paired cards',
+ run5:'5 ranks in a 5-rank window',run4:'4 ranks in a 5-rank window',run3:'3 ranks in a 5-rank window',runHi:'Run window tops at Q+',runLo:'Run window tops at 7 or lower',
+ hA:'Has an Ace',hK:'Has a King',hQ:'Has a Queen',hJ:'Has a Jack',hT:'Has a Ten',lowDang:'Low dangler (2-6, unpaired, unsuited, outside run)',hiDang:'Dangler 7+',
+ AAds:'AA and double-suited',tripsFH:'Trips + another pair (full-house shape)',tripsConn:'Trips rank sits inside a 3+ card run',lowTwoPair:'Two pair, both 99 or lower',AAdang:'AA + each dangler',KKds:'KK and double-suited'};
+function feat1(r,s){const I=info(r,s),f={};F1.forEach(k=>f[k]=0);const {cnt,prs,groups}=I;
+ if(prs.length){f['p'+plevel(prs[0])]=1;if(prs.length>1){const q=prs[1];f[q>=8?'p2hi':q>=4?'p2mid':'p2lo']=1;}}
+ for(let x=0;x<13;x++){if(cnt[x]===3){f.trips++;if(x>=8)f.tripsHi++;}if(cnt[x]===4)f.quads++;}
+ const lv=t=>t===12?'A':t===11?'K':t>=9?'Q':t>=6?'T':'L';
+ if(groups[0])f['s1'+lv(groups[0].top)]=1;if(groups[1])f['s2'+lv(groups[1].top)]=1;
+ groups.forEach(g=>{if(g.n===3)f.s3++;if(g.n>=4)f.s4++;if(g.m.every(i=>cnt[r[i]]>=2))f.pairSuit++;});
+ if(I.best>=3){f['run'+I.best]=1;const top=I.bw+4;if(top>=12)f.runHi=1;if(top<=7)f.runLo=1;}
+ [['hA',12],['hK',11],['hQ',10],['hJ',9],['hT',8]].forEach(([k,x])=>{if(cnt[x])f[k]=1;});
+ const suited=new Set();groups.forEach(g=>g.m.forEach(i=>suited.add(i)));let dang=0;
+ for(let i=0;i<5;i++){if(cnt[r[i]]>=2||suited.has(i)||(I.best>=3&&I.inWin(i)))continue;dang++;if(r[i]<=4)f.lowDang++;else f.hiDang++;}
+ if(f.trips&&prs.length>1)f.tripsFH=1;if(f.trips&&I.best>=3){for(let x=0;x<13;x++)if(cnt[x]===3){const i=r.indexOf(x);if(I.inWin(i))f.tripsConn=1;}}if(prs.length>1&&prs[0]<=7&&!f.trips)f.lowTwoPair=1;
+ const ds=groups.length>=2?1:0;if(prs[0]===12){f.AAds=ds;f.AAdang=dang;}if(prs[0]===11)f.KKds=ds;
+ return f;}
+
+const W={"pA": 12, "pK": 9, "pQ": 7, "pJ": 5, "pT": 4, "p97": 3, "p62": -1, "p2hi": 6, "p2mid": 5, "p2lo": 2, "trips": -18, "tripsHi": 3, "quads": -36, "s1A": 5, "s1K": 4, "s1Q": 3, "s1T": 1, "s1L": 0, "s2A": 10, "s2K": 6, "s2Q": 5, "s2T": 4, "s2L": 3, "s3": -2, "s4": -4, "pairSuit": 0, "run5": 7, "run4": 4, "run3": 2, "runHi": 0, "runLo": -4, "hA": 3, "hK": 2, "hQ": 2, "hJ": 2, "hT": 3, "lowDang": 0, "hiDang": 1, "AAds": 2, "AAdang": -1, "KKds": 1, "tripsFH": 6, "lowTwoPair": -1, "tripsConn": 2};
+const WC={};
+const PCT={"-37": 0.002, "-36": 0.005, "-35": 0.005, "-34": 0.005, "-33": 0.006, "-32": 0.009, "-31": 0.011, "-30": 0.012, "-29": 0.012, "-28": 0.014, "-27": 0.015, "-26": 0.016, "-25": 0.017, "-24": 0.018, "-23": 0.019, "-22": 0.019, "-21": 0.03, "-20": 0.05, "-19": 0.079, "-18": 0.121, "-17": 0.155, "-16": 0.236, "-15": 0.363, "-14": 0.467, "-13": 0.543, "-12": 0.62, "-11": 0.746, "-10": 0.899, "-9": 0.997, "-8": 1.057, "-7": 1.146, "-6": 1.254, "-5": 1.36, "-4": 1.518, "-3": 1.767, "-2": 2.181, "-1": 2.816, "0": 3.781, "1": 5.303, "2": 7.258, "3": 9.742, "4": 13.115, "5": 17.474, "6": 22.582, "7": 27.785, "8": 33.583, "9": 39.82, "10": 46.082, "11": 52.518, "12": 58.692, "13": 64.615, "14": 69.918, "15": 74.498, "16": 78.326, "17": 81.931, "18": 85.398, "19": 88.177, "20": 90.563, "21": 92.316, "22": 93.59, "23": 94.674, "24": 95.58, "25": 96.422, "26": 97.024, "27": 97.459, "28": 97.813, "29": 98.104, "30": 98.398, "31": 98.638, "32": 98.849, "33": 99.065, "34": 99.301, "35": 99.497, "36": 99.59, "37": 99.684, "38": 99.781, "39": 99.866, "40": 99.931, "41": 99.959, "42": 99.97, "43": 99.978, "44": 99.988, "45": 99.996};
+const CUT={"Premium": 20, "Open any position": 16, "Late position": 12, "Limp/call": 10}; // minimum points for each tier (Premium>=90th pct, Open>=75, Late>=55, Limp>=40)
+function tier(p){return p>=90?'Premium':p>=75?'Open any position':p>=55?'Late position':p>=40?'Limp/call':'Fold';}
+function pts(hand){const [r,s]=parse(hand);const f=feat1(r,s);let points=0;const breakdown=[];
+ for(const k of F1){const v=(f[k]||0)*(W[k]||0);if(v){points+=v;breakdown.push([L1[k]+(f[k]>1?' x'+f[k]:''),v]);}}
+ return {points,breakdown};}
+const ADJ={"AA": 40, "DS": 7, "SP": -7};
+function rp(hand){const [r,s]=parse(hand);const f=feat1(r,s);const a={AA:f.pA,DS:f.s2A+f.s2K+f.s2Q+f.s2T+f.s2L,SP:f.pT+f.p97+f.p62};
+ const LB={AA:'Raised pot: AA',DS:'Raised pot: double-suited',SP:'Raised pot: best pair TT or lower'};let v=0;const bd=[];
+ for(const k in ADJ){const x=a[k]*ADJ[k];if(x){v+=x;bd.push([LB[k],x]);}}return {adj:v,bd};}
+function score(hand){const {points,breakdown}=pts(hand);const R2=rp(hand);const percentile=PCT[points]!==undefined?PCT[points]:(points<MINP?0:100);return {points,percentile,tier:tier(percentile),breakdown,alt:points+R2.adj,altBreakdown:R2.bd};}
+const MINP=-37,MAXP=45;
+module.exports={score,rp,ADJ,pts,W,WC,PCT,CUT,MINP,MAXP,tier,parse};
+module.exports.feat1=feat1;module.exports.info=info;module.exports.F1=F1;
+
+;return module.exports;})();
+var T3=(function(){var module={exports:{}};var require=function(){return S6C;};
+// score_3bet.js — PLO5 "facing a 3-bet" score. Same interface as score_6.js plus v3 + decision.
+// Built 2026-10-23 from Monte-Carlo sims in /workspace/plo5-3bet (see report.md). Assumptions: blinds 0.5/1,
+// pot-size 3-bet (OOP: to 12 after a 3.5 open; IP: BB to 11), no rake, heads-up, realization R=0.80 OOP / 0.95 IP.
+const S6=require('./s6copy.js');
+const WT={AA:137,DS:31,PQ:-40,KK:-29,oneA:-11,s3:-8};      // tight mode (vs AA-heavy 3-bettor)
+const WW={AA:52,DS:9,PQ:-11,QQ:5,KK:7,aceSuit:5};          // wide mode (vs ~10-16% 3-bettor)
+const LBL={AA:'Pair of aces',DS:'Double-suited',PQ:'Best pair QQ or lower (no AA/KK)',KK:'Best pair KK',oneA:'Exactly one ace',s3:'3+ cards of one suit',QQ:'Best pair QQ (offsets part of PQ)',aceSuit:'Ace is suited'};
+const MAP={"tight": {"tight": [0.3975, 0.00094], "std": [0.4293, 0.00088], "loose": [0.4491, 0.000773], "c_tight": [0.3928, 0.00067], "c_std": [0.3969, 0.000711], "c_loose": [0.4164, 0.000668]}, "mean3": {"tight": [0.3584, 0.002254], "std": [0.3835, 0.002386], "loose": [0.4059, 0.002182], "c_tight": [0.3697, 0.001464], "c_std": [0.369, 0.001654], "c_loose": [0.3879, 0.001623]}}; // equity ≈ a + b*score (OLS on training sims), per target range
+const CUTS={"tight_ifFoldsToFourBet": {"OOP100": {"call": 26, "fourbet": 37}, "OOP200": {"call": 26, "fourbet": 145}, "IP100": {"call": -47, "fourbet": 145}, "IP200": {"call": -47, "fourbet": 145}}, "tight": {"OOP100": {"call": 26, "fourbet": 158}, "OOP200": {"call": 26, "fourbet": 161}, "IP100": {"call": -47, "fourbet": 192}, "IP200": {"call": -47, "fourbet": 164}}, "std": {"OOP100": {"call": 15, "fourbet": 77}, "OOP200": {"call": 15, "fourbet": 77}, "IP100": {"call": 1, "fourbet": 81}, "IP200": {"call": 1, "fourbet": 81}}, "loose": {"OOP100": {"call": 6, "fourbet": 69}, "OOP200": {"call": 6, "fourbet": 69}, "IP100": {"call": 1, "fourbet": 77}, "IP200": {"call": 1, "fourbet": 77}}}; // call if score>=call, 4-bet if score>=fourbet (tight* use tight score; std/loose use wide score)
+function feats(hand){const [r,s]=S6.parse(hand);const f=S6.feat1(r,s);const nA=r.filter(x=>x===12).length;
+ const sn=[0,0,0,0];s.forEach(x=>sn[x]++);const nSuits=sn.filter(x=>x>=2).length;let aceSuit=0;
+ for(let i=0;i<5;i++)if(r[i]===12&&sn[s[i]]>=2)aceSuit=1;
+ return {AA:f.pA,KK:f.pK,QQ:f.pQ,PQ:f.pQ+f.pJ+f.pT+f.p97+f.p62,DS:nSuits>=2?1:0,oneA:nA===1?1:0,s3:f.s3+f.s4,aceSuit};}
+function sc(points,x,W){let v=points;const bd=[];for(const k in W)if(x[k]){v+=W[k]*x[k];bd.push({rule:LBL[k],points:W[k]*x[k]});}return {score:v,breakdown:bd};}
+function score(hand){const base=S6.score(hand);const x=feats(hand);
+ const t=sc(base.points,x,WT),w=sc(base.points,x,WW);
+ const eq=(m,s)=>{const o={};for(const k in MAP[m])o[k]=Math.round(1000*(MAP[m][k][0]+MAP[m][k][1]*s))/10;return o;};
+ const decision={};for(const r in CUTS){const s=r.startsWith('tight')?t.score:w.score;decision[r]={};
+  for(const sp in CUTS[r]){const c=CUTS[r][sp];decision[r][sp]=s>=c.fourbet?'4BET':s>=c.call?'CALL':'FOLD';}}
+ return Object.assign({},base,{v3:{tight:t.score,wide:w.score,tightBreakdown:t.breakdown,wideBreakdown:w.breakdown,
+  estEquityPct:{fromTight:eq('tight',t.score),fromWide:eq('mean3',w.score)}},decision});}
+module.exports=Object.assign({},S6,{score,feats,WT,WW,CUTS,MAP});
+if(require.main===module){const h=process.argv[2]||'AsAdKsKdQc';console.log(JSON.stringify(score(h),null,1));}
 
 ;return module.exports;})();
 // ==CORE== shared by page, worker and node
@@ -322,9 +419,17 @@ function heuristicLinear(h){
 }
 // MAIN SCORE: coach's "Approach 1 patched additive" + raised-pot alt (score_a1.js = plo5-approaches/score_6.js verbatim)
 var A1=(typeof A1!=='undefined'&&A1)?A1:require('./score_a1.js');
+// FACING A 3-BET: coach's refined model (score_3bet.js + s6copy.js, verbatim copies from plo5-3bet; see its report.md)
+var T3=(typeof T3!=='undefined'&&T3)?T3:require('./score_3bet.js');
+// rule labels = score_3bet.js LBL verbatim (test.js checks); spot -> which v3 score + equity estimate the decision uses
+var T3_LABELS={AA:'Pair of aces',DS:'Double-suited',PQ:'Best pair QQ or lower (no AA/KK)',KK:'Best pair KK',oneA:'Exactly one ace',s3:'3+ cards of one suit',QQ:'Best pair QQ (offsets part of PQ)',aceSuit:'Ace is suited'};
+function vs3(H,type,folds,pos,stack){var key=type==='tight'&&folds?'tight_ifFoldsToFourBet':type,tm=type==='tight',v=H.v3,
+  sp=pos+stack,c=T3.CUTS[key][sp],e=tm?v.estEquityPct.fromTight:v.estEquityPct.fromWide;
+  return {key:key,spot:sp,mode:tm?'tight':'wide',score:tm?v.tight:v.wide,breakdown:tm?v.tightBreakdown:v.wideBreakdown,action:H.decision[key][sp],
+   call:c.call,fourbet:c.fourbet,eq:e[type],eqC:e['c_'+type]};}
 function handStr(h){return h.map(function(c){return RANKS[c>>2]+SUITS[c&3];}).join('');}
-function heuristic(h){var r=A1.score(handStr(h));
-  return {score:r.points,percentile:r.percentile,tier:r.tier,breakdown:r.breakdown,alt:r.alt,altBreakdown:r.altBreakdown,linear:heuristicLinear(h).score};}
+function heuristic(h){var hs=handStr(h),r=A1.score(hs),t=T3.score(hs);
+  return {score:r.points,percentile:r.percentile,tier:r.tier,breakdown:r.breakdown,alt:r.alt,altBreakdown:r.altBreakdown,v3:t.v3,decision:t.decision,linear:heuristicLinear(h).score};}
 // ---- info-button explanation tables (labels = score_a1.js L1 verbatim, weights read live from A1.W / W; test.js checks both) ----
 var A1_LABELS={pA:'Top pair AA',pK:'Top pair KK',pQ:'Top pair QQ',pJ:'Top pair JJ',pT:'Top pair TT',p97:'Top pair 99-77',p62:'Top pair 66-22',
  p2hi:'Second pair TT+',p2mid:'Second pair 99-66',p2lo:'Second pair 55-22',trips:'Trips (dead 3rd card)',tripsHi:'Trips are TTT+',quads:'Quads',
@@ -348,12 +453,29 @@ var A1_GROUPS=[
 var LIN_LABELS=[['pAA','Pair AA'],['pKK','Pair KK'],['pQQ','Pair QQ'],['pJJ','Pair JJ'],['pTT','Pair TT'],['p97','Pair 99-77'],['p62','Pair 66-22'],['pair2T','Second pair TT+'],['trips','Trips or quads (each)'],
  ['run5','5-card rundown'],['run4c','4 connected'],['run4g','4 with one gap'],['run3c','3 connected'],['run3g','3 with one gap'],['topT','Run top card T+'],['top7','Run top card ≤7'],
  ['suitA','Suited, A-high (up to 2 suits)'],['suitK','Suited, K-high'],['suitO','Suited, Q-high or lower'],['suit3','3+ cards of one suit (each)'],['dang','Each dangler'],['low','Each 2–5 not in an A-high suit']];
-if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS};
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS};
 // ==ENDCORE==
 </script>
 <script>
 var DIST=[0.109,0.1303,0.1568,0.1614,0.166,0.1701,0.1748,0.1774,0.18,0.1823,0.1845,0.1852,0.1873,0.1887,0.1899,0.1915,0.1926,0.1937,0.1953,0.1959,0.1969,0.1979,0.1986,0.1994,0.2009,0.2018,0.2023,0.203,0.2038,0.2043,0.2054,0.2064,0.2068,0.2077,0.2083,0.2092,0.2098,0.2107,0.2112,0.212,0.2127,0.2131,0.2137,0.2144,0.2151,0.2157,0.2162,0.2169,0.2175,0.2179,0.2183,0.2188,0.2194,0.2199,0.2204,0.221,0.2217,0.2223,0.2231,0.2239,0.2244,0.2248,0.2253,0.2262,0.2268,0.2274,0.2279,0.2283,0.2289,0.2294,0.23,0.2309,0.2313,0.2318,0.2323,0.2331,0.2335,0.2341,0.2344,0.2349,0.2353,0.2362,0.2367,0.2371,0.2374,0.2379,0.2384,0.2389,0.2394,0.2397,0.2405,0.2412,0.2417,0.2419,0.2427,0.2438,0.2442,0.2449,0.2453,0.2458,0.2462,0.247,0.2473,0.2483,0.2487,0.2492,0.2499,0.2502,0.2507,0.2508,0.2516,0.2519,0.2526,0.2534,0.2537,0.2543,0.2547,0.2552,0.2556,0.2562,0.2567,0.2575,0.2578,0.2584,0.259,0.2598,0.2605,0.2612,0.262,0.2626,0.2631,0.2639,0.2647,0.2653,0.2659,0.2664,0.2672,0.268,0.2688,0.2692,0.2697,0.2703,0.2711,0.2722,0.2728,0.274,0.275,0.2757,0.2763,0.2769,0.2774,0.278,0.2787,0.2795,0.2804,0.281,0.2816,0.2824,0.2832,0.2837,0.2843,0.2853,0.2863,0.2869,0.2874,0.2882,0.2893,0.2908,0.2918,0.2928,0.2936,0.2948,0.2954,0.2964,0.2972,0.2983,0.2998,0.3009,0.3027,0.3045,0.3054,0.3062,0.3078,0.3087,0.3107,0.313,0.3144,0.3166,0.3185,0.3199,0.3232,0.3246,0.3277,0.3329,0.3359,0.3404,0.3445,0.3506,0.3578,0.3662,0.3912];
-var SYM=['♠','♥','♦','♣'],hands=[[],[],],act=0,tgt=0,suit=0,jobs=[0,0,0],workers=[],open=[false,false],res=[{},{},{}],nr=1;
+var SYM=['♠','♥','♦','♣'],hands=[[],[],],act=0,tgt=0,suit=0,jobs=[0,0,0],workers=[],open=[false,false],res=[{},{},{}],nr=1,
+ v3t='tight',v3f=false,v3p='OOP',v3s='100'; // facing-a-3-bet selections (shared by both hands): 3-bettor type, folds non-aces to 4-bets (Tight only), position, stack
+var AC={FOLD:'#ff453a',CALL:'#32d74b','4BET':'#ff9f0a'},V3N={tight:'Tight live',std:'Standard',loose:'Loose'};
+function v3D(H){return vs3(H,v3t,v3f,v3p,v3s);}
+function v3desc(){return V3N[v3t]+(v3t==='tight'?(v3f?', folds non-aces to 4-bets':', doesn’t fold to 4-bets'):'')+' · '+v3p+' · '+v3s+'bb';}
+function segH(at,opts,cur){return '<div class="seg sw" role="radiogroup">'+opts.map(function(o){return '<button data-'+at+'="'+o[0]+'" role="radio" aria-checked="'+(o[0]===cur)+'"'+(o[0]===cur?' class="on"':'')+'>'+o[1]+'</button>';}).join('')+'</div>';}
+function v3sec(H,p){var D=v3D(H),M=D.mode==='tight'?'Tight':'Wide';
+ return '<div class="sec sx"><span>Facing a 3-bet</span>'+ib('alt',p,'facing a 3-bet')+'</div>'+
+  '<div class="v3c"><span class="rl">3-bettor</span>'+segH('v3t',[['tight','Tight live'],['std','Standard'],['loose','Loose']],v3t)+'</div>'+
+  (v3t==='tight'?'<div class="v3c"><span class="rl">Folds non-aces to 4-bets</span><button class="tog'+(v3f?' on':'')+'" data-v3f="1" role="switch" aria-checked="'+v3f+'" aria-label="folds non-aces to 4-bets"><i></i></button></div>':'')+
+  '<div class="v3c"><span class="rl">Position</span>'+segH('v3p',[['OOP','OOP'],['IP','IP']],v3p)+'</div>'+
+  '<div class="v3c"><span class="rl">Stack</span>'+segH('v3s',[['100','100bb'],['200','200bb']],v3s)+'</div>'+
+  '<div class="v3a"><span class="act" style="color:'+AC[D.action]+'">'+D.action+'</span><span class="v3m">'+M+'-mode score <b>'+D.score+'</b><br>call ≥ '+D.call+' · 4-bet ≥ '+D.fourbet+'</span></div>'+
+  '<div class="row"><span>Est. equity vs his 3-bet range</span><span>'+D.eq.toFixed(1)+'%</span></div>'+
+  '<div class="row"><span>Est. equity vs his 4-bet calls</span><span>'+D.eqC.toFixed(1)+'%</span></div>'+
+  '<div class="row"><span>Base points</span><span>'+H.score+'</span></div>'+D.breakdown.map(function(r){return prow([r.rule,r.points]);}).join('')+
+  '<div class="row tot"><span>'+M+'-mode score</span><span>'+D.score+'</span></div>'+
+  '<div class="muted">Heads-up, no rake; assumes 80% OOP / 95% IP equity realization.</div>';}
 // single-hand mode: index of the only complete hand when the other player is empty, else -1
 function randMode(){var f0=hands[0].length===5,f1=hands[1].length===5;return f0&&!hands[1].length?0:f1&&!hands[0].length?1:-1;}
 function runRand(){var m=randMode();if(m>=0)run(2,{h:sorted(hands[m]),rn:nr,n:30000});}
@@ -402,13 +524,12 @@ function paint(){
   var running=((hh||rm===p)&&!H2.fin)||!E.fin;
   b.innerHTML='<div class="st"><span></span><span class="h">Win(%)</span><span class="h">Tie(%)</span><span class="h">Equity(%)</span>'+ib('eq',p,'Win, Tie and Equity')+'<button class="chev" data-chev="'+p+'" aria-label="details">'+CHEV+'</button>'+
    '<span class="lb">'+lab+'</span><span class="v">'+f(w)+'</span><span class="v">'+f(t)+'</span><span class="v">'+f(q)+'</span></div>'+
-   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:#eee">'+H.alt+'</b>'+(hh?'':rm===p?' · vs '+nr+' random':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
+   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:'+AC[v3D(H).action]+'">'+v3D(H).action+'</b>'+(hh?'':rm===p?' · vs '+nr+' random':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
    '<div class="det"><div class="sec sx"><span>Points '+H.score+' · percentile '+fpc(H.percentile)+'</span>'+ib('pts',p,'points')+'</div>'+(H.breakdown.length?H.breakdown.map(prow).join(''):'<div class="row"><span>No scoring features</span><span>0</span></div>')+
    '<div class="row tot"><span>Total</span><span>'+H.score+'</span></div>'+
    '<div class="muted">Premium ≥20 pts (top 10%) · Open ≥16 (top 25%) · Late ≥12 (top 45%) · Limp/call ≥10 (top 60%) · Fold ≤9. Percentile = share of all 2,598,960 PLO5 hands scoring fewer points.</div>'+
    '<div class="row" style="color:#999;font-size:14px"><span>Old linear score (comparison only)</span><span class="rv">'+H.linear+ib('linear',p,'the old linear score')+'</span></div>'+
-   '<div class="sec sx"><span>vs 3-bet (raised-pot ranking) '+H.alt+'</span>'+ib('alt',p,'vs 3-bet')+'</div><div class="row"><span>Base points</span><span>'+H.score+'</span></div>'+H.altBreakdown.map(prow).join('')+
-   '<div class="row tot"><span>vs 3-bet total</span><span>'+H.alt+'</span></div><div class="muted">Ranking only, no tier: compare hands when facing a raise/3-bet from a tight range.</div>'+
+   v3sec(H,p)+
    '<div class="sec sx"><span>Equity vs random hands</span>'+ib('eqrand',p,'equity vs random hands')+'</div><div class="row"><span>vs 3 random (4-way)</span><span>'+f(E.e4)+'%</span></div><div class="row"><span>vs 1 random (HU)</span><span>'+f(E.e1)+'%</span></div>'+
    '<div class="row"><span>Equity percentile (4-way)</span><span>'+(pc!=null?pc.toFixed(1)+'th':'–')+'</span></div>'+
    (hh?'<div class="sec sx"><span>Head-to-head vs Player '+(2-p)+'</span>'+ib('eq',p,'head-to-head equity')+'</div><div class="row"><span>Win / Tie / Lose</span><span>'+f(w)+' / '+f(t)+' / '+f(p?H2.w1:H2.w2)+'</span></div>':'')+
@@ -434,6 +555,7 @@ function changed(p){stop(p);stop(2);if(p===0)smFromP1();
 $('players').onclick=function(e){var c=e.target.closest('[data-p]');
  if(c){var p=+c.dataset.p,i=+c.dataset.i;openSheet(p,i);return;}
  var k=e.target.closest('[data-clr]');if(k){var q=+k.dataset.clr;hands[q].length=0;changed(q);return;}
+ var g=e.target.closest('[data-v3t],[data-v3p],[data-v3s],[data-v3f]');if(g){var d=g.dataset;if(d.v3t)v3t=d.v3t;if(d.v3p)v3p=d.v3p;if(d.v3s)v3s=d.v3s;if(d.v3f)v3f=!v3f;paint();return;}
  var r=e.target.closest('[data-nr]');if(r){var n=+r.dataset.nr;if(n!==nr){nr=n;stop(2);runRand();build();}return;}
  var v=e.target.closest('[data-chev]');if(v){var z=+v.dataset.chev;open[z]=!open[z];$('pl'+z).classList.toggle('open',open[z]);}};
 $('mini').onclick=function(e){var c=e.target.closest('.cd');if(!c)return;var i=[].indexOf.call($('mini').children,c);
@@ -495,16 +617,16 @@ eq:function(p){var hh=hands[0].length===5&&hands[1].length===5,E=res[p]||{},H2=r
  else s+=noHand(p);
  return {t:'Win / Tie / Equity',h:s};},
 score:function(p){var H=curH(p),s='';
- s+='<p>The line under the equity numbers reads: <b>tier · points · percentile · vs 3-bet</b>. All four come from the <b>Approach 1</b> point system (“patched additive”), not from the Monte Carlo equity.</p>';
- if(H){var adj=H.altBreakdown.map(function(x){return ' '+sgn(x[1]).replace('+','+ ').replace('−','− ');}).join('');
-  s+='<div class="fx">'+H.score+' pts → '+fpc(H.percentile)+' pct → <b>'+H.tier+'</b><br>vs 3-bet = '+H.score+adj+' = <b>'+H.alt+'</b></div>';}
+ s+='<p>The line under the equity numbers reads: <b>tier · points · percentile · vs 3-bet</b>. The first three come from the <b>Approach 1</b> point system (“patched additive”). The vs 3-bet action comes from the coach’s facing-a-3-bet model, which starts from those points. None of them use the Monte Carlo equity.</p>';
+ if(H){var D=v3D(H);
+  s+='<div class="fx">'+H.score+' pts → '+fpc(H.percentile)+' pct → <b>'+H.tier+'</b><br>vs 3-bet ('+v3desc()+'): '+(D.mode==='tight'?'tight':'wide')+'-mode score '+D.score+' → <b style="color:'+AC[D.action]+'">'+D.action+'</b></div>';}
  else s+=noHand(p);
  s+='<h4>1 · Points</h4><p>Add up a fixed number of points for each feature the hand has (pairs, suits, run, high cards, danglers…). Range '+A1.MINP+' to +'+A1.MAXP+'. Tap ⓘ next to “Points” in the details panel for every feature and its weight.</p>'+
  '<h4>2 · Percentile (pct)</h4><p>Share of all <b>2,598,960</b> possible PLO5 hands that score <b>fewer</b> points (hands on the same points count half). Exact count of every hand, not a sample.'+(H?' This hand: '+H.score+' pts → '+fpc(H.percentile)+'.':'')+'</p>'+
  '<h4>3 · Tier (badge)</h4><p>Set by percentile:</p>'+
  T(['Tier','Percentile','Points'],TIERS.map(function(t,i){var mp=t[1]?minPts(t[1]):null,nx=i?minPts(TIERS[i-1][1]):null;
   return {c:H&&H.tier===t[0]?'hit':'',v:['<span class="tag" style="background:'+TC[t[0]]+'">'+t[0]+'</span>',t[1]?'≥ '+t[1]+'th':'< 40th',mp!=null?'≥ '+mp:'≤ '+(minPts(40)-1)]};}))+
- '<h4>4 · vs 3-bet</h4><p>Points + three raised-pot adjustments: AA '+sgn(A1.ADJ.AA)+', double-suited '+sgn(A1.ADJ.DS)+', best pair TT or lower '+sgn(A1.ADJ.SP)+'. Use it to <b>compare hands when facing a raise / 3-bet from a tight range</b>. It is a ranking only: no tier, no percentile. Tap ⓘ on the vs 3-bet heading in details for more.</p>'+
+ '<h4>4 · vs 3-bet</h4><p>What to do if you open and get 3-bet heads-up: <b style="color:'+AC.FOLD+'">FOLD</b>, <b style="color:'+AC.CALL+'">CALL</b> or <b style="color:'+AC['4BET']+'">4BET</b>. It follows the 3-bettor type, position and stack picked in the details panel (now: '+v3desc()+'). Tap ⓘ on “Facing a 3-bet” in details for how it works.</p>'+
  '<h4>How the weights were set</h4><p>Integer weights were fitted on simulated equities of ~43,000 hands to a blend of <b>½ 4-way + ¼ 3-way + ¼ heads-up</b> equity vs random hands, then checked on 3,000 fresh hands (source: plo5-approaches/report.md). Points rank hands; they are not equity. On that holdout the tier matched the hand’s true 4-way equity tier 68.7% of the time (96.6% within one tier).</p>';
  return {t:'Tier · pts · pct · vs 3-bet',h:s};},
 pts:function(p){var H=curH(p),got={},s='';
@@ -516,13 +638,25 @@ pts:function(p){var H=curH(p),got={},s='';
  '<p class="muted">Examples: the “Dangler 7+” +1 acts as a small credit for a high loose card. Trips are scored as the pair (e.g. Top pair AA) plus “Trips” '+sgn(A1.W.trips)+'. Second suit only exists if the hand has two suited groups (that also triggers “double-suited”).</p>'+
  '<h4>Percentile &amp; tier</h4><p>Percentile = share of all 2,598,960 hands with fewer points (ties half), from an exact count. Tier: Premium ≥'+minPts(90)+' pts (≥90th), Open ≥'+minPts(75)+' (≥75th), Late ≥'+minPts(55)+' (≥55th), Limp/call ≥'+minPts(40)+' (≥40th), else Fold.</p>';
  return {t:'Points breakdown (Approach 1)',h:s};},
-alt:function(p){var H=curH(p),s='';
- s+='<p><b>vs 3-bet = Approach 1 points + raised-pot adjustments.</b> Use it when you face a raise or 3-bet from a tight range: AA and double-suited hands gain, small-pair hands lose.</p>'+
- T(['Adjustment','Points'],[{v:['Top pair is AA',sgn(A1.ADJ.AA)]},{v:['Double-suited (has a second suited group)',sgn(A1.ADJ.DS)]},{v:['Best pair is TT or lower',sgn(A1.ADJ.SP)]}]);
- if(H){s+='<div class="fx">'+H.score+' (points)'+H.altBreakdown.map(function(x){return '<br>'+sgn(x[1])+' '+x[0].replace('Raised pot: ','');}).join('')+'<br>= <b>'+H.alt+'</b></div>';}
- s+='<p>The three rules were picked to rank hands best by <b>heads-up equity vs an AA + 3 random cards range</b>, while costing almost nothing (≤0.01 rank correlation) vs a top-25% opener range (plo5-approaches/report.md).</p>'+
- '<p><b>Ranking only.</b> No tier and no percentile. Only compare it to other hands’ vs 3-bet numbers, not to normal points or tiers.</p>';
- return {t:'vs 3-bet (raised-pot ranking)',h:s};},
+alt:function(p){var H=curH(p),D=H?v3D(H):null,s='',tm=v3t==='tight',key=tm&&v3f?'tight_ifFoldsToFourBet':v3t,
+  K=['AA','DS','PQ','QQ','KK','oneA','s3','aceSuit'],hit={};
+ if(D)D.breakdown.forEach(function(r){hit[r.rule]=1;});
+ s+='<p><b>You opened and one player 3-bets pot, heads-up.</b> The coach’s model (plo5-3bet/report.md, built from Monte Carlo sims) gives the hand a score, then compares it with cut-offs fitted for the 3-bettor type, position and stack you pick.</p>';
+ if(D)s+='<div class="fx">'+v3desc()+'<br>'+H.score+' (points)'+D.breakdown.map(function(r){return '<br>'+sgn(r.points)+' '+r.rule;}).join('')+'<br>= '+(tm?'tight':'wide')+'-mode score <b>'+D.score+'</b><br>call ≥ '+D.call+', 4-bet ≥ '+D.fourbet+' → <b style="color:'+AC[D.action]+'">'+D.action+'</b></div>';
+ else s+=noHand(p);
+ s+='<h4>Two scores</h4><p>Both start from Approach 1 points. <b>Tight mode</b> is for AA-heavy 3-bettors and is used for <b>Tight live</b>. <b>Wide mode</b> is for 3-bettors who 3-bet roughly 10–16% of hands and is used for <b>Standard</b> and <b>Loose</b>. '+(D?'Green = rules this hand gets in the mode in use.':'')+'</p>'+
+ T(['Rule','Tight','Wide'],K.map(function(k){var a=T3.WT[k],b=T3.WW[k];return {c:hit[T3_LABELS[k]]?'hit':'',v:[T3_LABELS[k],a!=null?sgn(a):'–',b!=null?sgn(b):'–']};}),1)+
+ '<p class="muted">Each mode ranks hands badly against the other kind of 3-bettor, so both are kept. On held-out sim hands, rank correlation with equity: tight mode 0.858 vs tight 3-bettors (old vs 3-bet score 0.647); wide mode 0.913 vs standard and 0.889 vs loose (old 0.834 / 0.856).</p>'+
+ '<h4>3-bettor types</h4>'+T(['Type','His 3-bet range'],[{c:v3t==='tight'?'hit':'',v:['Tight live','Any hand with exactly two aces, or points ≥ 25 (about 5.7% of hands, 70.5% AA)']},{c:v3t==='std'?'hit':'',v:['Standard','Points ≥ 20 (about 10.6% of hands, 31.2% AA)']},{c:v3t==='loose'?'hit':'',v:['Loose','Points ≥ 18 (about 16.1% of hands, 23.2% AA)']}],1)+
+ '<p><b>Folds non-aces to 4-bets</b> (Tight only): he keeps only his aces when you 4-bet, so 4-betting good non-AA hands can work. With it off, and for Standard and Loose, the cut-offs assume he doesn’t fold, so 4-bets are for value only.</p>'+
+ '<h4>Cut-offs: '+V3N[v3t]+(tm?(v3f?', folds non-aces':', doesn’t fold'):'')+'</h4>'+
+ T(['Spot','Call if ≥','4-bet if ≥',H?'This hand':''],['OOP100','OOP200','IP100','IP200'].map(function(sp){var c=T3.CUTS[key][sp];return {c:sp===v3p+v3s?'hit':'',v:[sp.replace(/(\d+)/,' $1bb'),c.call,c.fourbet,H?'<b style="color:'+AC[H.decision[key][sp]]+'">'+H.decision[key][sp]+'</b>':'']};}))+
+ '<p>Below the call cut-off it’s FOLD. Score ≥ the 4-bet cut-off is 4BET; anything in between is CALL. The cut-offs were fitted on 60% of about 2,200 simulated hands and checked on the other 40%.</p>';
+ if(D){var m=T3.MAP[tm?'tight':'mean3'],A=m[v3t],B=m['c_'+v3t];
+  s+='<h4>Estimated equity</h4><p>A straight-line fit to the sims (heads-up, all-in preflop): equity ≈ a + b × score.</p><div class="fx">vs his 3-bet range: '+(A[0]*100).toFixed(2)+'% + '+(A[1]*100).toFixed(4)+'% × '+D.score+' ≈ <b>'+D.eq.toFixed(1)+'%</b><br>vs his range that calls a 4-bet: '+(B[0]*100).toFixed(2)+'% + '+(B[1]*100).toFixed(4)+'% × '+D.score+' ≈ <b>'+D.eqC.toFixed(1)+'%</b></div>';}
+ s+='<h4>Model assumptions</h4><p>Blinds 0.5/1, pot-size raises, heads-up, no rake. <b>OOP:</b> you open to 3.5 and a player behind 3-bets to 12, so you call 8.5. <b>IP:</b> the big blind 3-bets to 11, so you call 7.5. Calling pays if equity × R × pot > cost, with equity realization <b>R = 80% OOP / 95% IP</b>. That needs about 41.7% raw equity OOP and 35.1% IP. A 4-bet is pot-sized; if he calls, the model treats it as all-in.</p>'+
+ '<p class="muted">Caveats: heads-up only (multiway pots are not modelled), no rake (rake means more folds), and R is an assumption the fold/call line is very sensitive to. At 200bb, all-in after a called 4-bet overstates the 4-bet. Whether he folds to a 4-bet comes from an equity rule, not from observed play. Some calls are close (for example KK double-suited rundowns vs Tight live OOP are about break-even in the sims, but the score folds them).</p>';
+ return {t:'Facing a 3-bet',h:s};},
 linear:function(p){var s='',L=hands[p].length===5?heuristicLinear(sorted(hands[p])):null;
  s+='<p>The <b>previous point system</b>, shown only for comparison. It does not set the tier or percentile.</p><p>It uses the original rule features (pairs, rundowns, suits, danglers, low cards), with weights refitted by least squares to <b>4-way all-in equity</b> on 24,000 random hands (2,000 trials each). About 1 point ≈ 0.67 percentage points of 4-way equity.</p>';
  if(L)s+=T(['This hand','Points'],L.breakdown.map(function(b){return {c:'hit',v:[b[0],sgn(b[1])]};}).concat([{v:['<b>Total</b>','<b>'+L.score+'</b> · '+L.tier]}]));
