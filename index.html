@@ -82,6 +82,11 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .row .ib{margin:-8px -6px -8px 2px}.row .rv{display:inline-flex;align-items:center}
 .fg label{justify-content:space-between}.fg label .lt{display:flex;align-items:center;justify-content:space-between;min-height:16px}.fg label .ib{margin:-9px -6px -9px 0}
 .smr .need .ib{margin:-9px 0 -9px -2px}
+/* single-hand mode: random opponents selector */
+.rnd{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px}.rl{font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:.4px}
+.seg{display:flex;background:#333;border:1px solid #555;border-radius:8px;padding:2px;gap:2px}
+.seg button{width:40px;height:34px;border:none;border-radius:6px;background:none;color:#ddd;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
+.seg button.on{background:#ff9500;color:#000}
 /* info bottom sheet */
 #iscrim{z-index:20}.isheet{z-index:21;padding-top:6px}
 .open-info #iscrim{opacity:1;pointer-events:auto}.open-info #isheet{transform:none}
@@ -233,6 +238,23 @@ function mcEquity(hero,nOpp,trials,rnd){
   }
   return eq/trials;
 }
+// Hero vs nOpp random hands (fresh opponents + board each trial, same dealing as mcEquity). Returns {w,t,eq} fractions:
+// w = hero beats every opponent, t = hero ties for best with k-1 others, eq = w + sum over ties of 1/k
+function mcVsRandom(hero,nOpp,trials,rnd){
+  rnd=rnd||Math.random;var used=new Array(52).fill(false);hero.forEach(function(c){used[c]=true;});
+  var deck=[];for(var c=0;c<52;c++)if(!used[c])deck.push(c);
+  var need=5*nOpp+5,w=0,t=0,eq=0,n=deck.length,opp=[],board=[0,0,0,0,0];
+  for(var o=0;o<nOpp;o++)opp.push([0,0,0,0,0]);
+  for(var k=0;k<trials;k++){
+    for(var i=0;i<need;i++){var j=i+Math.floor(rnd()*(n-i));var tmp=deck[i];deck[i]=deck[j];deck[j]=tmp;}
+    var idx=0;for(o=0;o<nOpp;o++)for(i=0;i<5;i++)opp[o][i]=deck[idx++];
+    for(i=0;i<5;i++)board[i]=deck[idx++];
+    var hv=evalPLO(hero,board),win=true,ties=1;
+    for(o=0;o<nOpp;o++){var v=evalPLO(opp[o],board);if(v>hv){win=false;break;}if(v===hv)ties++;}
+    if(win){if(ties===1)w++;else t++;eq+=1/ties;}
+  }
+  return {w:w/trials,t:t/trials,eq:eq/trials};
+}
 // Head-to-head: exact hands h1 vs h2, random board. Returns {w1,w2,t} fractions
 function mcH2H(h1,h2,trials,rnd){
   rnd=rnd||Math.random;var used=new Array(52).fill(false);
@@ -326,17 +348,21 @@ var A1_GROUPS=[
 var LIN_LABELS=[['pAA','Pair AA'],['pKK','Pair KK'],['pQQ','Pair QQ'],['pJJ','Pair JJ'],['pTT','Pair TT'],['p97','Pair 99-77'],['p62','Pair 66-22'],['pair2T','Second pair TT+'],['trips','Trips or quads (each)'],
  ['run5','5-card rundown'],['run4c','4 connected'],['run4g','4 with one gap'],['run3c','3 connected'],['run3g','3 with one gap'],['topT','Run top card T+'],['top7','Run top card ≤7'],
  ['suitA','Suited, A-high (up to 2 suits)'],['suitK','Suited, K-high'],['suitO','Suited, Q-high or lower'],['suit3','3+ cards of one suit (each)'],['dang','Each dangler'],['low','Each 2–5 not in an A-high suit']];
-if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS};
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS};
 // ==ENDCORE==
 </script>
 <script>
 var DIST=[0.109,0.1303,0.1568,0.1614,0.166,0.1701,0.1748,0.1774,0.18,0.1823,0.1845,0.1852,0.1873,0.1887,0.1899,0.1915,0.1926,0.1937,0.1953,0.1959,0.1969,0.1979,0.1986,0.1994,0.2009,0.2018,0.2023,0.203,0.2038,0.2043,0.2054,0.2064,0.2068,0.2077,0.2083,0.2092,0.2098,0.2107,0.2112,0.212,0.2127,0.2131,0.2137,0.2144,0.2151,0.2157,0.2162,0.2169,0.2175,0.2179,0.2183,0.2188,0.2194,0.2199,0.2204,0.221,0.2217,0.2223,0.2231,0.2239,0.2244,0.2248,0.2253,0.2262,0.2268,0.2274,0.2279,0.2283,0.2289,0.2294,0.23,0.2309,0.2313,0.2318,0.2323,0.2331,0.2335,0.2341,0.2344,0.2349,0.2353,0.2362,0.2367,0.2371,0.2374,0.2379,0.2384,0.2389,0.2394,0.2397,0.2405,0.2412,0.2417,0.2419,0.2427,0.2438,0.2442,0.2449,0.2453,0.2458,0.2462,0.247,0.2473,0.2483,0.2487,0.2492,0.2499,0.2502,0.2507,0.2508,0.2516,0.2519,0.2526,0.2534,0.2537,0.2543,0.2547,0.2552,0.2556,0.2562,0.2567,0.2575,0.2578,0.2584,0.259,0.2598,0.2605,0.2612,0.262,0.2626,0.2631,0.2639,0.2647,0.2653,0.2659,0.2664,0.2672,0.268,0.2688,0.2692,0.2697,0.2703,0.2711,0.2722,0.2728,0.274,0.275,0.2757,0.2763,0.2769,0.2774,0.278,0.2787,0.2795,0.2804,0.281,0.2816,0.2824,0.2832,0.2837,0.2843,0.2853,0.2863,0.2869,0.2874,0.2882,0.2893,0.2908,0.2918,0.2928,0.2936,0.2948,0.2954,0.2964,0.2972,0.2983,0.2998,0.3009,0.3027,0.3045,0.3054,0.3062,0.3078,0.3087,0.3107,0.313,0.3144,0.3166,0.3185,0.3199,0.3232,0.3246,0.3277,0.3329,0.3359,0.3404,0.3445,0.3506,0.3578,0.3662,0.3912];
-var SYM=['♠','♥','♦','♣'],hands=[[],[],],act=0,tgt=0,suit=0,jobs=[0,0,0],workers=[],open=[false,false],res=[{},{},{}];
+var SYM=['♠','♥','♦','♣'],hands=[[],[],],act=0,tgt=0,suit=0,jobs=[0,0,0],workers=[],open=[false,false],res=[{},{},{}],nr=1;
+// single-hand mode: index of the only complete hand when the other player is empty, else -1
+function randMode(){var f0=hands[0].length===5,f1=hands[1].length===5;return f0&&!hands[1].length?0:f1&&!hands[0].length?1:-1;}
+function runRand(){var m=randMode();if(m>=0)run(2,{h:sorted(hands[m]),rn:nr,n:30000});}
 var SRC=document.getElementById('core').textContent+
  '\n;onmessage=function(e){var d=e.data,chunk=2000,done=0;if(d.h2){var w1=0,w2=0,t=0;while(done<d.n){var r=mcH2H(d.h,d.h2,chunk);w1+=r.w1*chunk;w2+=r.w2*chunk;t+=r.t*chunk;done+=chunk;postMessage({id:d.id,w1:w1/done,w2:w2/done,t:t/done,done:done,fin:done>=d.n});}return;}'+
+ 'if(d.rn){var rw=0,rt=0,rq=0;while(done<d.n){var x=mcVsRandom(d.h,d.rn,chunk);rw+=x.w*chunk;rt+=x.t*chunk;rq+=x.eq*chunk;done+=chunk;postMessage({id:d.id,rn:d.rn,w:rw/done,t:rt/done,eq:rq/done,done:done,fin:done>=d.n});}return;}'+
  'var e4=0,e1=0;while(done<d.n){e4+=mcEquity(d.h,3,chunk)*chunk;e1+=mcEquity(d.h,1,chunk)*chunk;done+=chunk;postMessage({id:d.id,e4:e4/done,e1:e1/done,done:done,fin:done>=d.n});}}';
 var URLW=URL.createObjectURL(new Blob([SRC],{type:'text/javascript'}));
-// worker 0 = P1 equity, 1 = P2 equity, 2 = head-to-head; terminate to cancel stale work
+// worker 0 = P1 equity, 1 = P2 equity, 2 = head-to-head (or, with one hand only, that hand vs nr random hands); terminate to cancel stale work
 function run(k,msg){stop(k);var w=workers[k]=new Worker(URLW);var id=msg.id=++jobs[k];w.onmessage=function(e){if(e.data.id===jobs[k]){res[k]=e.data;paint();}};w.postMessage(msg);}
 function stop(k){jobs[k]++;res[k]={};if(workers[k]){workers[k].terminate();workers[k]=null;}}
 var $=function(id){return document.getElementById(id);};
@@ -357,23 +383,26 @@ function build(){
  var s='';
  for(var p=0;p<2;p++){var hd=hands[p],cs='';
   for(var i=0;i<5;i++){var t=sheetOpen()&&p===act&&i===tgt?' tgt':'';cs+=hd[i]!=null?face(hd[i],t).replace('class="cd','data-p="'+p+'" data-i="'+i+'" class="cd'):back(t).replace('class="cd','data-p="'+p+'" data-i="'+i+'" class="cd');}
-  s+='<section class="pl'+(open[p]?' open':'')+'" id="pl'+p+'"><div class="pt"><h2>Player '+(p+1)+'</h2><button class="clr" data-clr="'+p+'"'+(hd.length?'':' disabled')+'>Clear</button></div>'+
+  s+='<section class="pl'+(open[p]?' open':'')+'" id="pl'+p+'"><div class="pt"><h2>'+(randMode()>=0&&randMode()!==p?(nr>1?nr+' random hands':'Random hand'):'Player '+(p+1))+'</h2><button class="clr" data-clr="'+p+'"'+(hd.length?'':' disabled')+'>Clear</button></div>'+
    '<div class="cards">'+cs+'</div><div id="body'+p+'"></div></section>';}
  $('players').innerHTML=s;paint();
 }
 // fills the stats/summary/details for each player from current hands + worker results
 function paint(){
- var full=[hands[0].length===5,hands[1].length===5],hh=full[0]&&full[1],H2=res[2];
+ var full=[hands[0].length===5,hands[1].length===5],hh=full[0]&&full[1],H2=res[2],rm=randMode(),rh=rm>=0&&H2.rn===nr;
  for(var p=0;p<2;p++){var b=$('body'+p);if(!b)continue;
+  if(rm>=0&&p!==rm){b.innerHTML='<div class="rnd"><span class="rl">Opponents</span><div class="seg" role="radiogroup" aria-label="number of random opponents">'+[1,2,3,4,5].map(function(n){return '<button data-nr="'+n+'" role="radio" aria-checked="'+(n===nr)+'"'+(n===nr?' class="on"':'')+'>'+n+'</button>';}).join('')+'</div></div>'+
+   '<div class="muted" style="text-align:center;margin:2px 0 6px">Player '+(rm+1)+' vs '+(nr>1?nr+' random hands':'1 random hand')+', new hands every trial. Tap a card to pick a real hand.</div>';continue;}
   if(!full[p]){b.innerHTML=hands[p].length?'<div class="hint" style="padding:8px">Pick '+(5-hands[p].length)+' more card'+(hands[p].length===4?'':'s')+'</div>':'';continue;}
   var E=res[p],w,t,q,lab;
   if(hh){w=p?H2.w2:H2.w1;t=H2.t;q=w!=null?w+t/2:null;lab='Hi';}
+  else if(rm===p){w=rh?H2.w:null;t=rh?H2.t:null;q=rh?H2.eq:null;lab='Hi';}
   else{w=null;t=null;q=E.e1;lab='Hi';}
   var H=heuristic(sorted(hands[p])),pc=E.e4!=null?pct(E.e4):null;
-  var running=(hh&&!H2.fin)||!E.fin;
+  var running=((hh||rm===p)&&!H2.fin)||!E.fin;
   b.innerHTML='<div class="st"><span></span><span class="h">Win(%)</span><span class="h">Tie(%)</span><span class="h">Equity(%)</span>'+ib('eq',p,'Win, Tie and Equity')+'<button class="chev" data-chev="'+p+'" aria-label="details">'+CHEV+'</button>'+
    '<span class="lb">'+lab+'</span><span class="v">'+f(w)+'</span><span class="v">'+f(t)+'</span><span class="v">'+f(q)+'</span></div>'+
-   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:#eee">'+H.alt+'</b>'+(hh?'':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
+   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:#eee">'+H.alt+'</b>'+(hh?'':rm===p?' · vs '+nr+' random':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
    '<div class="det"><div class="sec sx"><span>Points '+H.score+' · percentile '+fpc(H.percentile)+'</span>'+ib('pts',p,'points')+'</div>'+(H.breakdown.length?H.breakdown.map(prow).join(''):'<div class="row"><span>No scoring features</span><span>0</span></div>')+
    '<div class="row tot"><span>Total</span><span>'+H.score+'</span></div>'+
    '<div class="muted">Premium ≥20 pts (top 10%) · Open ≥16 (top 25%) · Late ≥12 (top 45%) · Limp/call ≥10 (top 60%) · Fold ≤9. Percentile = share of all 2,598,960 PLO5 hands scoring fewer points.</div>'+
@@ -383,8 +412,9 @@ function paint(){
    '<div class="sec sx"><span>Equity vs random hands</span>'+ib('eqrand',p,'equity vs random hands')+'</div><div class="row"><span>vs 3 random (4-way)</span><span>'+f(E.e4)+'%</span></div><div class="row"><span>vs 1 random (HU)</span><span>'+f(E.e1)+'%</span></div>'+
    '<div class="row"><span>Equity percentile (4-way)</span><span>'+(pc!=null?pc.toFixed(1)+'th':'–')+'</span></div>'+
    (hh?'<div class="sec sx"><span>Head-to-head vs Player '+(2-p)+'</span>'+ib('eq',p,'head-to-head equity')+'</div><div class="row"><span>Win / Tie / Lose</span><span>'+f(w)+' / '+f(t)+' / '+f(p?H2.w1:H2.w2)+'</span></div>':'')+
-   '<div class="muted">'+(E.done||0).toLocaleString()+' trials each'+(hh?' · '+(H2.done||0).toLocaleString()+' head-to-head boards':'')+'. Percentile vs 2,000 random hands; avg 4-way equity 25%.</div></div>';}
- $('hint').style.display=full[0]?'none':'';
+   (rm===p?'<div class="sec sx"><span>Main row: vs '+(nr>1?nr+' random hands':'1 random hand')+'</span>'+ib('eq',p,'equity vs random hands')+'</div><div class="row"><span>Win / Tie / Lose</span><span>'+f(w)+' / '+f(t)+' / '+(rh?f(1-w-t):'–')+'</span></div>':'')+
+   '<div class="muted">'+(E.done||0).toLocaleString()+' trials each'+(hh?' · '+(H2.done||0).toLocaleString()+' head-to-head boards':rm===p?' · main row '+(rh?H2.done||0:0).toLocaleString()+' trials vs '+nr+' random':'')+'. Percentile vs 2,000 random hands; avg 4-way equity 25%.</div></div>';}
+ $('hint').style.display=full[0]||full[1]?'none':'';
  if(typeof info!=='undefined'&&info.k)renderInfo();
 }
 function renderSheet(){
@@ -399,10 +429,12 @@ function closeSheet(){document.body.classList.remove('open-sheet');build();}
 function changed(p){stop(p);stop(2);if(p===0)smFromP1();
  if(hands[p].length===5)run(p,{h:sorted(hands[p]),n:30000});
  if(hands[0].length===5&&hands[1].length===5)run(2,{h:sorted(hands[0]),h2:sorted(hands[1]),n:30000});
+ runRand();
  if(sheetOpen())renderSheet();build();}
 $('players').onclick=function(e){var c=e.target.closest('[data-p]');
  if(c){var p=+c.dataset.p,i=+c.dataset.i;openSheet(p,i);return;}
  var k=e.target.closest('[data-clr]');if(k){var q=+k.dataset.clr;hands[q].length=0;changed(q);return;}
+ var r=e.target.closest('[data-nr]');if(r){var n=+r.dataset.nr;if(n!==nr){nr=n;stop(2);runRand();build();}return;}
  var v=e.target.closest('[data-chev]');if(v){var z=+v.dataset.chev;open[z]=!open[z];$('pl'+z).classList.toggle('open',open[z]);}};
 $('mini').onclick=function(e){var c=e.target.closest('.cd');if(!c)return;var i=[].indexOf.call($('mini').children,c);
  if(hands[act][i]!=null){hands[act].splice(i,1);tgt=i;changed(act);}else{tgt=hands[act].length;renderSheet();build();}};
@@ -449,8 +481,14 @@ eq:function(p){var hh=hands[0].length===5&&hands[1].length===5,E=res[p]||{},H2=r
   '<div class="fx">Equity = Win + ½ × Tie<br>= '+f(w)+' + '+f(t)+' ÷ 2 = <b>'+f(w!=null?w+t/2:null)+'%</b></div>'+
   '<p>Equity is your share of the pot if all the money went in now. Boards done: '+n.toLocaleString()+' of 30,000'+(H2.fin?'':' (still running – numbers update every 2,000 boards)')+'. Precision: about ±'+se(w!=null?w+t/2:.5,n)+' points (1 standard error).</p>'+
   '<p class="muted">“Hi” = high-hand only. No betting, no folding: pure showdown equity.</p>';}
+ else if(randMode()===p){var N=nr,rh=H2.rn===N,w=rh?H2.w:null,t=rh?H2.t:null,q=rh?H2.eq:null,n=rh?H2.done||0:0,ts=q!=null?q-w:null;
+  s+='<p><b>Only one hand entered, so it plays '+(N>1?N+' random hands':'1 random hand')+'.</b> Pick 1–5 opponents with the selector in the empty player’s area. Each of <b>30,000</b> Monte Carlo trials deals '+(N>1?N+' new random 5-card hands':'a new random 5-card hand')+' and a 5-card board from the 47 unseen cards. Best hand = exactly 2 hole + 3 board cards, high only.</p>'+
+  T(['vs '+N+' random','This hand'],[{v:['<b>Win</b> = beats '+(N>1?'every opponent':'the opponent')+' outright',pf(w)]},{v:['<b>Tie</b> = shares the best hand with k−1 others (pot split k ways)',pf(t)]},{v:['Lose = '+(N>1?'someone has':'opponent has')+' a better hand',rh?pf(1-w-t):'–']}])+
+  '<div class="fx">Equity = Win + tie share (each k-way split counts 1/k)<br>= '+f(w)+' + '+f(ts)+' = <b>'+f(q)+'%</b>'+(N>1?'<br>Fair share with '+(N+1)+' players = '+(100/(N+1)).toFixed(2)+'%':'')+'</div>'+
+  '<p>'+(N>1?'With 3+ players a tie can be a 3- or more-way split, so the tie share is at most ½ × Tie. ':'Heads-up the tie share is ½ × Tie. ')+'Trials done: '+n.toLocaleString()+' of 30,000'+(H2.fin?'':' (running)')+'. Precision: about ±'+se(q!=null?q:.5,n)+' points (1 SE).</p>'+
+  '<p>Tap a card in the empty player’s area to pick a real hand. When it is complete the app switches to head-to-head. The details panel’s “vs 3 random” and “vs 1 random” figures are separate fixed runs; they don’t change with the selector.</p>';}
  else if(hands[p].length===5){var q=E.e1;
-  s+='<p><b>Win and Tie show “–”</b> because there is no opponent hand yet. Fill the other player for a head-to-head.</p>'+
+  s+='<p><b>Win and Tie show “–”</b> while the other hand is only partly picked. Finish it for a head-to-head, or clear it to play random hands.</p>'+
   '<p><b>Equity = all-in preflop equity vs 1 random hand.</b> Each Monte Carlo trial deals a random 5-card opponent hand and a random 5-card board from the unseen cards. Best hand uses exactly 2 hole + 3 board cards. Win counts 1, a tie counts ½.</p>'+
   '<div class="fx">Equity = (wins + ½ × ties) ÷ trials = <b>'+pf(q)+'</b><br>'+(E.done||0).toLocaleString()+' of 30,000 trials'+(E.fin?'':' (running)')+' · ±'+se(q!=null?q:.5,E.done)+' pts (1 SE)</div>'+
   '<p>The details panel also shows equity vs 3 random hands (4-way), from a separate 30,000 trials.</p>';}
@@ -494,7 +532,7 @@ linear:function(p){var s='',L=hands[p].length===5?heuristicLinear(sorted(hands[p
 eqrand:function(p){var E=res[p]||{},s='',pc=E.e4!=null?pct(E.e4):null;
  s+='<p>All-in preflop equity of this hand vs <b>random</b> hands, via Monte Carlo. Each trial deals random opponent hands and a random board from the unseen cards. Best hand = exactly 2 hole + 3 board cards. Win counts 1. A tie among k players counts 1/k.</p>'+
  T(['','This hand'],[{v:['vs 3 random (4-way)',pf(E.e4)]},{v:['vs 1 random (heads-up)',pf(E.e1)]},{v:['Trials (each)',(E.done||0).toLocaleString()+' / 30,000']}])+
- '<p>A random hand averages 25% 4-way and 50% heads-up, so above those is better than average.</p>'+
+ '<p>A random hand averages 25% 4-way and 50% heads-up, so above those is better than average. These two are fixed runs. When only one hand is entered, the main Win/Tie/Equity row is a separate run vs the number of random opponents you pick (1–5).</p>'+
  '<h4>Equity percentile (4-way)</h4><p>Where this hand’s 4-way equity sits among <b>2,000 random hands</b> (2,000 trials each). These are stored as 201 cut points, one every 0.5 percentile, and the app interpolates between them.'+(pc!=null?' This hand: '+pf(E.e4)+' → <b>'+pc.toFixed(1)+'th</b>.':'')+'</p>'+
  '<p class="muted">This is a measured-equity percentile. The “pct” on the score line is a different thing: the points percentile over all 2,598,960 hands.</p>';
  return {t:'Equity vs random hands',h:s};},
