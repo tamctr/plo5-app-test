@@ -115,7 +115,9 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .muc{background:#2c2c2e;border-radius:10px;padding:8px 10px;margin:6px 0}
 .muhd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.muhd b{font-size:15px}.muhd .q{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
 .muw{color:#bbb;font-size:13px;margin:2px 0 4px}
-.mux{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;border-top:1px solid #3a3a3c;padding:6px 0 4px;color:#ddd;text-align:left;font:inherit;font-size:13px;cursor:pointer}
+.mux{display:block;width:100%;background:none;border:none;border-top:1px solid #3a3a3c;padding:6px 0 4px;color:#ddd;text-align:left;font:inherit;font-size:13px;cursor:pointer}
+.mxr{display:flex;align-items:center;gap:10px}.mrs{list-style:none;margin:5px 0 2px;padding:0;font-size:12.5px;line-height:1.35}.mrs li{display:flex;gap:6px;margin:1px 0}.mrs i{font-style:normal;font-weight:700;flex:none;width:12px;text-align:center}
+.mrs li.g{color:#7ee2a0}.mrs li.g i{color:#30d158}.mrs li.b{color:#ff9d97}.mrs li.b i{color:#ff453a}.mrs li.n{color:#bbb}
 .mux .mue{line-height:1.3;font-variant-numeric:tabular-nums}.mux small{color:#8e8e93}
 .qb{color:#ff6961}.qg{color:#30d158}
 .ibody details{margin:8px 0}.ibody summary{color:#ff9500;cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
@@ -535,79 +537,151 @@ function dealRange(top,lo,hi,blocked,rnd,budgetMs){rnd=rnd||Math.random;blocked=
   if((t&255)===0&&Date.now()>end)return {h:null,why:'slow',tries:t};}}
 function dealByPoints(top,minP,blocked,rnd,budgetMs){var mx=ptsRange(top)[1];if(minP>mx)return {h:null,why:'none'};return dealRange(top,minP,ptsRange(top)[1],blocked,rnd,budgetMs);}
 // ---- matchups (crossed-swords sheet): which PLO5 hand classes do best / worst heads-up vs a hero hand ----
-// Classes are checked in this order; the first rule that fits wins (ranks 0..12 = 2..A, T = 8).
+// ---- Matchups (crossed swords): opponent hand classes + strongest specific hands vs a hero; trips/quads are never dealt ----
 var MU_CLASSES=[
- ['trips','Trips or quads','three or four cards of one rank'],
- ['aces','Aces','exactly two aces + any side cards'],
- ['bigdp','Big double pair','two pairs, both TT or higher (e.g. KKQQ)'],
- ['smalldp','Small double pair','two pairs, at least one 99 or lower'],
- ['pairrun','Pair + connectors','one pair, the four different ranks fit in a 5-rank window (e.g. JJT98)'],
- ['highpair','Big pair + side cards','one pair TT–KK, side cards not connected to it'],
- ['smallpair','Small pair + junk','one pair 22–99, side cards not connected (set-mining hand)'],
- ['broadway','Broadway','no pair, four or five cards T or higher'],
- ['hirun','High rundown','no pair, 4–5 cards in a 5-rank window topping at J or higher (e.g. QJT98)'],
- ['lowrun','Low / mid rundown','no pair, 4–5 cards in a 5-rank window topping at T or lower (e.g. 87654)'],
- ['acesuited','Suited ace + junk','no pair, not a rundown/Broadway, an ace with a suited partner'],
- ['trash','Unpaired, disconnected','none of the above: no pair, no run, no suited ace']];
-function muFeat(h){var cnt=[0,0,0,0,0,0,0,0,0,0,0,0,0],sc=[0,0,0,0],i,r,prs=[],mx=0,hi=0,v,lo,k,best=0,bw=0,has={},sa=false;
- for(i=0;i<5;i++){r=h[i]>>2;cnt[r]++;sc[h[i]&3]++;if(r>=8)hi++;has[r+2]=1;if(r===12)has[1]=1;}
+ ['aces','Aces','exactly two aces (AA + any side cards, incl. AAxx double pairs)'],
+ ['bigdp','Big double pair','two pairs, both TT or higher (e.g. KKQQ, JJTT)'],
+ ['mixeddp','Mixed double pair','two pairs, one TT or higher and one 99 or lower (e.g. KK55, JJ99)'],
+ ['smalldp','Small double pair','two pairs, both 99 or lower (e.g. 9966, 5533)'],
+ ['pairrun','One pair + rundown','one pair, and the four different ranks fit in a 5-rank window (e.g. 99876, JJT98)'],
+ ['bigrun','Big rundown','no pair, 4–5 cards in a 5-rank window whose top card is Q–A (e.g. KQJT9, QJT98, AKQJ5)'],
+ ['midrun','Middle rundown','no pair, 4–5 cards in a 5-rank window whose top card is 9–J (e.g. JT987, T9876)'],
+ ['smallrun','Small rundown','no pair, 4–5 cards in a 5-rank window whose top card is 8 or lower (e.g. 87654, 76543, 5432A)'],
+ ['highpair','Big pair + side cards','one pair TT–KK, side cards not a rundown'],
+ ['smallpair','Small pair + side cards','one pair 22–99, side cards not a rundown (set-mining hand)'],
+ ['unpaired','Unpaired, no rundown','none of the above: no pair, fewer than 4 connected cards (incl. suited-ace hands like A♠x♠ + junk)']];
+var MU_SUIT='♠♥♦♣',MU_RN='23456789TJQKA';
+// features: cnt per rank, pairs (desc), max count, rundown (best = most distinct ranks in a 5-rank window, highest such window; rt = top value held there, A=14, wheel A=1)
+function muFeat(h){var cnt=[0,0,0,0,0,0,0,0,0,0,0,0,0],sc=[0,0,0,0],i,r,prs=[],mx=0,v,lo,k,best=0,bw=0,has={},sa=false,rt=0,rs=[];
+ for(i=0;i<5;i++){r=h[i]>>2;cnt[r]++;sc[h[i]&3]++;has[r+2]=1;if(r===12)has[1]=1;}
  for(r=12;r>=0;r--){if(cnt[r]===2)prs.push(r);if(cnt[r]>mx)mx=cnt[r];}
  for(lo=10;lo>=1;lo--){k=0;for(v=lo;v<lo+5;v++)if(has[v])k++;if(k>best){best=k;bw=lo;}}
+ for(v=bw+4;v>=bw;v--)if(has[v]){if(!rt)rt=v;rs.push(v);}
  for(i=0;i<5;i++)if((h[i]>>2)===12&&sc[h[i]&3]>=2)sa=true;
  var ns=0;for(i=0;i<4;i++)if(sc[i]>=2)ns++;
- return {cnt:cnt,prs:prs,mx:mx,hi:hi,best:best,bw:bw,sa:sa,ds:ns>=2,suited:ns>=1,top:prs.length?prs[0]:-1};}
+ return {cnt:cnt,sc:sc,prs:prs,mx:mx,best:best,bw:bw,rt:rt,rs:rs,sa:sa,ds:ns>=2,suited:ns>=1,top:prs.length?prs[0]:-1};}
 function handClass(h){var f=muFeat(h);
- if(f.mx>=3)return 'trips';if(f.cnt[12]===2)return 'aces';
- if(f.prs.length===2)return f.prs[1]>=8?'bigdp':'smalldp';
+ if(f.mx>=3)return 'trips'; // not a Matchups class: never sampled
+ if(f.cnt[12]===2)return 'aces';
+ if(f.prs.length===2)return f.prs[1]>=8?'bigdp':f.prs[0]>=8?'mixeddp':'smalldp';
  if(f.prs.length===1){if(f.best>=4)return 'pairrun';return f.prs[0]>=8?'highpair':'smallpair';}
- if(f.hi>=4)return 'broadway';if(f.best>=4)return f.bw>=7?'hirun':'lowrun';if(f.sa)return 'acesuited';return 'trash';}
+ if(f.best>=4)return f.rt>=12?'bigrun':f.rt>=9?'midrun':'smallrun';
+ return 'unpaired';}
 // uniform random hand of class k from the cards the hero isn't holding (rejection; null if none found in maxTries)
 function sampleClass(k,hero,rnd,maxTries){rnd=rnd||Math.random;var d=[],i,j,x,t;for(i=0;i<52;i++)if(hero.indexOf(i)<0)d.push(i);
  for(t=0;t<(maxTries||200000);t++){for(i=0;i<5;i++){j=i+Math.floor(rnd()*(d.length-i));x=d[i];d[i]=d[j];d[j]=x;}var h=d.slice(0,5);if(handClass(h)===k)return h.sort(function(a,b){return b-a;});}return null;}
 // opponent's heads-up all-in preflop equity vs hero (random 5-card board; ties split)
 function muEq(hero,opp,trials,rnd){var r=mcH2H(hero,opp,trials,rnd);return r.w2+r.t/2;}
-// o: n hands per class, t trials per hand, rt trials to re-measure each shown example, show = classes per section
-function matchups(hero,o,rnd,prog){o=o||{};var n=o.n||20,T=o.t||140,RT=o.rt||400,S=o.show||3,cl=[],i,j;
+// shared board pool: boards dealt from the cards the hero isn't holding, hero's value pre-computed once;
+// an opponent uses the boards that don't touch its cards (unbiased: those are uniform boards from the remaining 42 cards)
+function muPool(hero,nb,rnd){var d=[],i,j,x,k,P={b:[],hv:[],lo:new Int32Array(nb),hi:new Int32Array(nb),n:nb};for(i=0;i<52;i++)if(hero.indexOf(i)<0)d.push(i);
+ for(k=0;k<nb;k++){var b=[0,0,0,0,0],lo=0,hi=0;for(i=0;i<5;i++){j=i+Math.floor(rnd()*(d.length-i));x=d[i];d[i]=d[j];d[j]=x;b[i]=x;if(x<32)lo|=1<<x;else hi|=1<<(x-32);}
+  P.b.push(b);P.hv.push(evalPLO(hero,b));P.lo[k]=lo;P.hi[k]=hi;}return P;}
+function muSt(opp,start){var lo=0,hi=0;opp.forEach(function(x){if(x<32)lo|=1<<x;else hi|=1<<(x-32);});return {h:opp,lo:lo,hi:hi,s:start||0,pos:0,w:0,t:0,n:0,e:0};}
+function muRun(P,st,want){while(st.n<want&&st.pos<P.n){var k=(st.s+st.pos++)%P.n;if((P.lo[k]&st.lo)||(P.hi[k]&st.hi))continue;var v=evalPLO(st.h,P.b[k]),hv=P.hv[k];if(v>hv)st.w++;else if(v===hv)st.t++;st.n++;}
+ st.e=st.n?(st.w+st.t/2)/st.n:0;return st.e;}
+// biased random opponent for the strongest-hands search: high pairs/aces, higher rundowns over the hero's ranks, the hero's suits (to contest flushes); never trips
+function muGen(hero,f,rnd){var used=new Array(52).fill(false),h=[],i,mode=Math.floor(rnd()*6),hsu=[],tries=0;hero.forEach(function(c){used[c]=true;});
+ for(i=0;i<4;i++)if(f.sc[i]>=2)hsu.push(i);
+ function ri(n){return Math.floor(rnd()*n);}
+ function cntR(r){var n=0;h.forEach(function(c){if((c>>2)===r)n++;});return n;}
+ function add(r){if(r<0||r>12||cntR(r)>=2)return false;var order=[0,1,2,3].sort(function(){return rnd()-.5;}),inH=h.map(function(c){return c&3;});
+  if(rnd()<.6){var pref=hsu.concat(inH.filter(function(s){return inH.filter(function(t){return t===s;}).length===1;}));if(pref.length){var s0=pref[ri(pref.length)];order=[s0].concat(order.filter(function(s){return s!==s0;}));}}
+  for(var q=0;q<4;q++){var c=r*4+order[q];if(!used[c]){used[c]=true;h.push(c);return true;}}return false;}
+ var hmax=0;hero.forEach(function(c){if((c>>2)>hmax)hmax=c>>2;});
+ if(mode===0){add(12);add(12);}
+ else if(mode===1){var pr=Math.max(8,Math.min(12,(f.top>=0?f.top:hmax)+1+ri(3)));add(pr);add(pr);}
+ else if(mode===2){var a=8+ri(5),b=8+ri(5);add(a);add(a);if(b!==a){add(b);add(b);}}
+ else if(mode===3||mode===4){var top=Math.min(14,Math.max(6,f.rt+(mode===3?1+ri(3):ri(2)))),k=4+ri(2),rs=[];for(i=top;i>top-5;i--)rs.push(i);rs.sort(function(){return rnd()-.5;});
+  rs.slice(0,k).forEach(function(v){add(v===1?12:v-2);});if(rnd()<.3&&h.length<5)add(h.length?(h[0]>>2):12);}
+ while(h.length<5&&tries++<60){var r=rnd()<.45?8+ri(5):(h.length?Math.max(0,Math.min(12,(h[ri(h.length)]>>2)+ri(5)-2)):ri(13));add(r);}
+ if(h.length<5)return null;return h.sort(function(a,b){return b-a;});}
+// specific, computed reasons for one matchup (opp vs hero). g: true = good for you, false = bad for you, null = neutral
+function muReasons(hero,opp){var H=muFeat(hero),O=muFeat(opp),R=[],RN=MU_RN,rk=function(c){return c>>2;},cs=function(c){return RN[c>>2]+MU_SUIT[c&3];},pr=function(r){return RN[r]+RN[r];};
+ var hMax=Math.max.apply(null,hero.map(rk)),oMax=Math.max.apply(null,opp.map(rk)),hMin=Math.min.apply(null,hero.map(rk)),oMin=Math.min.apply(null,opp.map(rk));
+ function add(k,g,p,t){R.push({k:k,g:g,p:p,t:t});}
+ var hp=H.prs[0],op=O.prs[0];
+ if(op!==undefined){if(op>hMax)add('opair',false,10,'Their '+pr(op)+' is above all your cards (overpair)');else if(hp!==undefined&&op>hp)add('oset',false,10,'Their '+pr(op)+' sets beat your '+pr(hp)+' sets');}
+ if(hp!==undefined){if(hp>oMax)add('hpair',true,10,'Your '+pr(hp)+' is above all their cards (overpair)');else if(op!==undefined&&hp>op)add('hset',true,10,'Your '+pr(hp)+' sets beat their '+pr(op)+' sets');
+  else if(op===hp)add('same',null,9,'You both hold '+pr(hp)+': side cards and suits decide');
+  var an=function(r){return (r===12||r===6?'an ':'a ')+RN[r];},b=op===hp?0:O.cnt[hp];if(b===2)add('oblkset',false,7,'They hold both other '+RN[hp]+'s: you can\'t make a set');else if(b===1)add('oblkset',false,5,'They hold '+an(hp)+': one '+RN[hp]+' left for your set');}
+ if(op!==undefined&&op!==hp){var an2=function(r){return (r===12||r===6?'an ':'a ')+RN[r];},c=H.cnt[op];if(c===2)add('hblkset',true,7,'You hold both other '+RN[op]+'s: they can\'t make a set');else if(c===1)add('hblkset',true,5,'You hold '+an2(op)+': one '+RN[op]+' left for their set');}
+ // flushes: with both making a flush in one suit, the higher top hole card in that suit wins
+ var s,hh,oh,shared=0;for(s=0;s<4;s++){hh=-1;oh=-1;hero.forEach(function(c){if((c&3)===s&&rk(c)>hh)hh=rk(c);});opp.forEach(function(c){if((c&3)===s&&rk(c)>oh)oh=rk(c);});
+  if(H.sc[s]>=2&&O.sc[s]>=2){shared++;if(oh>hh)add('oflush',false,8,'Higher '+MU_SUIT[s]+' flush: their '+RN[oh]+MU_SUIT[s]+' beats your '+RN[hh]+MU_SUIT[s]);else add('hflush',true,8,'Higher '+MU_SUIT[s]+' flush: your '+RN[hh]+MU_SUIT[s]+' beats their '+RN[oh]+MU_SUIT[s]);}
+  else if(O.sc[s]>=2&&H.sc[s]<2){if(H.sc[s]===1&&hh>oh)add('hblkfl',true,4,'You hold '+RN[hh]+MU_SUIT[s]+', above their best '+MU_SUIT[s]+' ('+RN[oh]+MU_SUIT[s]+')');else add('osuit',false,4,'They can make a '+MU_SUIT[s]+' flush; you can\'t');}
+  else if(H.sc[s]>=2&&O.sc[s]<2){if(O.sc[s]===1&&oh>hh)add('oblkfl',false,4,'They hold '+RN[oh]+MU_SUIT[s]+', above your best '+MU_SUIT[s]+' ('+RN[hh]+MU_SUIT[s]+')');else add('hsuit',true,4,'Your '+MU_SUIT[s]+' flush isn\'t shared: they can\'t make one');}}
+ var sty=function(F){return F.ds?'double-suited':F.suited?'single-suited':'rainbow';};
+ if(O.ds&&!H.ds)add('ods',false,5,'Double-suited vs your '+sty(H)+' hand');else if(H.ds&&!O.ds)add('hds',true,5,'Your double-suited vs their '+sty(O)+' hand');
+ // straights: most connected 5-rank window of each hand
+ var VN=function(v){return v===1?'A':RN[v-2];},rsS=function(F){return F.rs.map(VN).join('');};
+ if(H.best>=3&&O.best>=3&&Math.abs(O.rt-H.rt)<=4&&(O.rt>H.rt?O.best:H.best)>=4){if(O.rt>H.rt)add('orun',false,7,'Higher straights: their '+rsS(O)+' runs over your '+rsS(H));else if(H.rt>O.rt)add('hrun',true,7,'Higher straights: your '+rsS(H)+' runs over their '+rsS(O));}
+ else if(O.best>=4&&H.best<=2)add('ocon',false,6,'Their connected '+rsS(O)+' vs your disconnected cards');
+ else if(H.best>=4&&O.best<=2)add('hcon',true,6,'Your connected '+rsS(H)+' vs their disconnected cards');
+ var inRun=function(F,c){var v=rk(c)+2;return F.rs.indexOf(v)>=0||(v===14&&F.rs.indexOf(1)>=0);},
+  uniq=function(L){var sn={};return L.filter(function(c){if(sn[c>>2])return false;sn[c>>2]=1;return true;});};
+ if(H.best>=4){var bl=uniq(opp.filter(function(c){return inRun(H,c);}));if(bl.length>=2)add('oblk',false,6,'They block your straights: they hold '+bl.slice(0,3).map(cs).join(' '));}
+ if(O.best>=4){var bh=uniq(hero.filter(function(c){return inRun(O,c);}));if(bh.length>=2)add('hblk',true,6,'You block their straights: you hold '+bh.slice(0,3).map(cs).join(' '));}
+ var nb=opp.filter(function(c){return rk(c)<hMin;}).length,na=opp.filter(function(c){return rk(c)>hMax;}).length;
+ if(nb>=4)add('obelow',true,3,nb+' of their cards are below all of yours');if(na>=4)add('oabove',false,3,na+' of their cards are above all of yours');
+ return R.sort(function(a,b){return b.p-a.p;});}
+// pick up to n reasons, at least one for the given side (side 1 = they do well -> lead with a red one)
+function muPick(R,side,n){n=n||3;var want=side>0?false:true,first=R.filter(function(x){return x.g===want;})[0],out=first?[first]:[];
+ R.forEach(function(x){if(out.length<n&&out.indexOf(x)<0)out.push(x);});return out;}
+// o: n hands per class, t boards per hand, rt boards to re-measure shown examples; search: sc candidates, refine to top st with sb boards
+function matchups(hero,o,rnd,prog,part){o=o||{};rnd=rnd||Math.random;var n=o.n||16,T=o.t||140,RT=o.rt||400,S=o.show||3,SC=o.sc===undefined?260:o.sc,SB=o.sb||1500,NT=o.top||5,cl=[],i,j;
+ var P=muPool(hero,o.pool||Math.max(3000,Math.ceil(SB*2)),rnd),f=muFeat(hero),steps=MU_CLASSES.length+3,step=0;
  for(i=0;i<MU_CLASSES.length;i++){var k=MU_CLASSES[i][0],hs=[];
-  for(j=0;j<n;j++){var h=sampleClass(k,hero,rnd,j?200000:400000);if(!h)break;hs.push({h:h,e:muEq(hero,h,T,rnd)});}
+  for(j=0;j<n;j++){var h=sampleClass(k,hero,rnd,j?200000:400000);if(!h)break;var st=muSt(h,Math.floor(rnd()*P.n));muRun(P,st,T);hs.push(st);}
   var avg=hs.length?hs.reduce(function(a,b){return a+b.e;},0)/hs.length:null;hs.sort(function(a,b){return b.e-a.e;});
-  cl.push({k:k,name:MU_CLASSES[i][1],rule:MU_CLASSES[i][2],n:hs.length,avg:avg,hs:hs});if(prog)prog(i+1,MU_CLASSES.length);}
+  cl.push({k:k,name:MU_CLASSES[i][1],rule:MU_CLASSES[i][2],n:hs.length,avg:avg,hs:hs});if(prog)prog(++step,steps);}
  var ok=cl.filter(function(c){return c.n>0;}).sort(function(a,b){return b.avg-a.avg;});
  var beat=ok.slice(0,S),dom=ok.slice(Math.max(S,ok.length-S)).reverse();
- // examples: re-measure the 3 most extreme sampled hands + the median one with RT boards; show the most extreme (after re-measuring) + the median
+ // examples: re-measure the 3 most extreme sampled hands + the median one; show the most extreme (after re-measuring) + the median
  function ex(c,side){var L=c.hs.length,mi=Math.floor(L/2),cand=[],q;
   for(q=0;q<Math.min(3,L);q++)cand.push(side>0?q:L-1-q);if(cand.indexOf(mi)<0)cand.push(mi);
-  var M=cand.map(function(i){return {i:i,h:c.hs[i].h,e:muEq(hero,c.hs[i].h,RT,rnd)};});
+  var M=cand.map(function(i){var st=c.hs[i];muRun(P,st,RT);return {i:i,h:st.h,e:st.e};});
   var best=M.reduce(function(a,b){return side>0?(b.e>a.e?b:a):(b.e<a.e?b:a);}),med=M.filter(function(x){return x.i===mi;})[0],out=[{h:best.h,e:best.e,tag:side>0?'strongest':'weakest'}];
-  if(med&&med!==best)out.push({h:med.h,e:med.e,tag:'typical'});return out;}
+  if(med&&med!==best)out.push({h:med.h,e:med.e,tag:'typical'});
+  return out.map(function(x){x.why=muPick(muReasons(hero,x.h),side,3);return x;});}
  beat.forEach(function(c){c.ex=ex(c,1);});dom.forEach(function(c){c.ex=ex(c,-1);});
- return {classes:ok.map(function(c){return {k:c.k,name:c.name,rule:c.rule,n:c.n,avg:c.avg};}),
+ var res={classes:ok.map(function(c){return {k:c.k,name:c.name,rule:c.rule,n:c.n,avg:c.avg};}),
   missing:cl.filter(function(c){return !c.n;}).map(function(c){return c.k;}),
-  beat:beat.map(function(c){return {k:c.k,name:c.name,n:c.n,avg:c.avg,ex:c.ex};}),dom:dom.map(function(c){return {k:c.k,name:c.name,n:c.n,avg:c.avg,ex:c.ex};}),o:{n:n,t:T,rt:RT}};}
-// one-line, rule-based "why" (structure only; the numbers come from the simulation). side 1 = they do well, -1 = they do badly
-function muWhy(k,hero,side,avg){var f=muFeat(hero),RN='23456789TJQKA',pr=function(r){return RN[r]+RN[r];},pct=Math.round(avg*100)+'%';
+  beat:beat.map(function(c){return {k:c.k,name:c.name,n:c.n,avg:c.avg,ex:c.ex};}),dom:dom.map(function(c){return {k:c.k,name:c.name,n:c.n,avg:c.avg,ex:c.ex};}),
+  o:{n:n,t:T,rt:RT,sc:SC,sb:SB},top:null};
+ if(part)part(res);
+ if(SC>0){// strongest-hands search: candidates = sampled hands of the top 4 classes + biased generated hands; screen on common boards, refine the best
+  var seen={},C=[];function put(h){var key=h.join();if(!seen[key]){seen[key]=1;C.push(muSt(h,0));}}
+  ok.slice(0,4).forEach(function(c){c.hs.forEach(function(st){put(st.h);});});
+  var g=0;while(C.length<SC+64&&g++<SC*4){var x=muGen(hero,f,rnd);if(x&&handClass(x)!=='trips')put(x);}
+  var nc=C.length;C.forEach(function(st){muRun(P,st,50);});C.sort(function(a,b){return b.e-a.e;});if(prog)prog(++step,steps);
+  C=C.slice(0,30);C.forEach(function(st){muRun(P,st,250);});C.sort(function(a,b){return b.e-a.e;});if(prog)prog(++step,steps);
+  C=C.slice(0,15);C.forEach(function(st){muRun(P,st,SB);});C.sort(function(a,b){return b.e-a.e;});if(prog)prog(++step,steps);
+  // the top 5 are re-measured on fresh, independent boards (removes the winner's-curse bias of picking the max of 15 noisy estimates)
+  var FB=o.fb||1200;res.top=C.slice(0,NT).map(function(st){return {h:st.h,e:muEq(hero,st.h,FB,rnd),sel:st.e,n:FB,k:handClass(st.h),why:muPick(muReasons(hero,st.h),1,3)};}).sort(function(a,b){return b.e-a.e;});res.nc=nc;res.o.fb=FB;}
+ return res;}
+// one-line, rule-based class "why" (structure only; the numbers come from the simulation). side 1 = they do well, -1 = they do badly
+function muWhy(k,hero,side,avg){var f=muFeat(hero),RN=MU_RN,pr=function(r){return RN[r]+RN[r];},pct=Math.round(avg*100)+'%',run=f.best>=4&&!f.prs.length;
  if(side>0){
-  if(k==='aces'&&f.top<12)return 'Their aces make overpairs and top sets over '+(f.top>=0?'your '+pr(f.top):'your unpaired cards')+'.';
-  if((k==='bigdp'||k==='highpair')&&f.top>=0&&f.top<8)return 'Their higher pairs make bigger sets than your '+pr(f.top)+' (set over set).';
-  if(k==='hirun'&&f.best>=4&&f.bw<7)return 'Their higher rundown holds the top end of the straights your cards make.';
-  if((k==='hirun'||k==='lowrun'||k==='pairrun')&&f.best<4)return 'Connected cards make straights and two pair on boards that miss your hand.';
-  if(k==='broadway'&&f.hi<3)return 'More high cards: they make bigger pairs, two pair and Broadway straights.';
-  if(k==='acesuited'&&!f.sa)return 'Their suited ace makes the nut flush when a flush comes'+(f.suited?' – your flushes are lower.':'.');
-  if(k==='aces'&&f.top===12)return 'Aces vs aces: you share the top pair, so side cards and suits decide – close to a coin flip.';
-  if((k==='aces'||k==='bigdp'||k==='highpair')&&f.top<0)return 'Their high pair is an overpair to most of your cards – you need your draws to get there.';
+  if(k==='aces'&&f.top===12)return 'Aces vs aces: you share the top pair, so side cards and suits decide.';
+  if(k==='aces'&&f.top>=0)return 'Their aces make overpairs and top sets over your '+pr(f.top)+'.';
+  if((k==='aces'||k==='bigdp'||k==='highpair')&&f.top>=0&&f.top<8)return 'Their higher pairs make bigger sets than your '+pr(f.top)+' (set over set).';
+  if((k==='aces'||k==='bigdp'||k==='mixeddp'||k==='highpair')&&f.top<0)return 'Their high pair is an overpair to most of your cards – you need your draws to get there.';
+  if((k==='bigrun'||k==='midrun')&&run&&f.rt<(k==='bigrun'?12:9))return 'Their higher rundown holds the top end of the straights your cards make.';
+  if((k==='bigrun'||k==='midrun'||k==='smallrun'||k==='pairrun')&&f.best<4)return 'Connected cards make straights and two pair on boards that miss your hand.';
+  if(k==='mixeddp'&&f.top>=0&&f.top<8)return 'Their big pair is above your '+pr(f.top)+', and their second pair adds set chances.';
+  if(k==='unpaired'&&f.best>=4)return 'Their high cards and suited aces make bigger pairs and nut flushes; your rundown needs to hit.';
   return 'They win '+pct+' vs you on average – your hand has no structural edge over this class.';}
- if(k==='trips')return 'Trips in hand are nearly dead: one card left for a set and fewer two-card combos.';
- if((k==='smallpair'&&f.top>=8)||((k==='smalldp'||k==='highpair'||k==='bigdp'||k==='pairrun')&&f.top===12))return 'Your '+pr(f.top)+' outranks their pairs: your sets and overpairs beat theirs.';
- if(k==='broadway'&&f.top>=8)return 'Your '+pr(f.top)+' is already ahead of their unpaired high cards; they need to pair up or make a straight.';
- if(k==='pairrun'&&f.best>=4&&!f.prs.length)return 'Their pair wastes a card: your five connected cards make more straights.';
- if(k==='trash')return 'Unpaired, disconnected cards rarely make the nuts against you.';
- if(k==='lowrun'&&f.best>=4&&f.bw>=6)return 'Your straights are higher: they often hold the low end.';
- if(k==='lowrun')return 'Low cards: their straights and two pair are often second-best.';
- if(k==='smallpair')return 'Small pair + junk mostly needs to flop a set to continue.';
- if(k==='acesuited'&&f.sa)return 'You hold an ace-high suit too, so their one-suit flush edge is mostly gone.';
- if(k==='acesuited')return 'One suited ace and little else: few ways to win unless the flush comes.';
+ if((k==='smallpair'&&f.top>=8)||((k==='smalldp'||k==='mixeddp'||k==='highpair'||k==='bigdp'||k==='pairrun')&&f.top===12))return 'Your '+pr(f.top)+' outranks their pairs: your sets and overpairs beat theirs.';
+ if(k==='pairrun'&&run)return 'Their pair wastes a card: your five connected cards make more straights.';
+ if(k==='unpaired')return 'Unpaired, disconnected cards rarely make the nuts against you.';
+ if(k==='smallrun'&&run&&f.rt>8)return 'Your straights are higher: they often hold the low end.';
+ if(k==='smallrun')return 'Low cards: their straights and two pair are often second-best.';
+ if(k==='smallpair')return 'Small pair + side cards mostly needs to flop a set to continue.';
+ if(k==='smalldp'&&f.top>=8)return 'Their small pairs make small sets: your bigger pairs and draws are ahead.';
+ if(k==='smalldp'&&f.best>=4&&!f.prs.length)return 'Small pairs need a set; your connected cards make straights and two pair more often.';
  return 'They win only '+pct+' vs you on average in this sample.';}
-if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq};
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq,muReasons:muReasons,muPick:muPick,muGen:muGen,muPool:muPool,muSt:muSt,muRun:muRun};
 // ==ENDCORE==
 </script>
 <script>
@@ -665,7 +739,7 @@ function v3sec(H,p){var D=v3D(H),M=D.mode==='tight'?'Tight':'Wide';
 function randMode(){var f0=hands[0].length===5,f1=hands[1].length===5;return f0&&!hands[1].length?0:f1&&!hands[0].length?1:-1;}
 function runRand(){var m=randMode();if(m>=0)run(2,{h:sorted(hands[m]),rn:nr,n:30000});}
 var SRC=document.getElementById('core').textContent+
- '\n;onmessage=function(e){var d=e.data,chunk=2000,done=0;if(d.mu){var r=matchups(d.h,d.o,null,function(i,n){postMessage({id:d.id,prog:i,of:n});});postMessage({id:d.id,r:r,fin:true});return;}if(d.h2){var w1=0,w2=0,t=0;while(done<d.n){var r=mcH2H(d.h,d.h2,chunk);w1+=r.w1*chunk;w2+=r.w2*chunk;t+=r.t*chunk;done+=chunk;postMessage({id:d.id,w1:w1/done,w2:w2/done,t:t/done,done:done,fin:done>=d.n});}return;}'+
+ '\n;onmessage=function(e){var d=e.data,chunk=2000,done=0;if(d.mu){var r=matchups(d.h,d.o,null,function(i,n){postMessage({id:d.id,prog:i,of:n});},function(p){postMessage({id:d.id,part:p});});postMessage({id:d.id,r:r,fin:true});return;}if(d.h2){var w1=0,w2=0,t=0;while(done<d.n){var r=mcH2H(d.h,d.h2,chunk);w1+=r.w1*chunk;w2+=r.w2*chunk;t+=r.t*chunk;done+=chunk;postMessage({id:d.id,w1:w1/done,w2:w2/done,t:t/done,done:done,fin:done>=d.n});}return;}'+
  'if(d.rn){var rw=0,rt=0,rq=0;while(done<d.n){var x=mcVsRandom(d.h,d.rn,chunk);rw+=x.w*chunk;rt+=x.t*chunk;rq+=x.eq*chunk;done+=chunk;postMessage({id:d.id,rn:d.rn,w:rw/done,t:rt/done,eq:rq/done,done:done,fin:done>=d.n});}return;}'+
  'var e4=0,e1=0;while(done<d.n){e4+=mcEquity(d.h,3,chunk)*chunk;e1+=mcEquity(d.h,1,chunk)*chunk;done+=chunk;postMessage({id:d.id,e4:e4/done,e1:e1/done,done:done,fin:done>=d.n});}}';
 var URLW=URL.createObjectURL(new Blob([SRC],{type:'text/javascript'}));
@@ -801,31 +875,40 @@ function hs(h){return h.map(function(c){return RANKS[c>>2]+SUITS[c&3];}).join(''
 function mini(h){return '<span class="mh">'+h.map(function(c){return face(c);}).join('')+'</span>';}
 function ppc(x){return Math.round(x*100)+'%';}
 function muNames(L){return L.map(function(c){return '<b>'+c.name+'</b>';}).join(L.length>2?', ':' and ').replace(/, ([^,]*)$/,' and $1');}
+function muWhyL(W){return W&&W.length?'<ul class="mrs">'+W.map(function(w){return '<li class="'+(w.g===true?'g':w.g===false?'b':'n')+'"><i>'+(w.g===true?'✓':w.g===false?'✗':'•')+'</i>'+esc(w.t)+'</li>';}).join('')+'</ul>':'';}
+function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function muEx(x,id,tag){return '<button class="mux" data-mux="'+id+'"><span class="mxr">'+mini(x.h)+'<span class="mue">They <b class="qb">'+(x.e*100).toFixed(1)+'%</b> · you <b class="qg">'+(100-x.e*100).toFixed(1)+'%</b><br><small>'+tag+' · tap to load as P'+(2-mu.p)+'</small></span></span>'+muWhyL(x.why)+'</button>';}
 function muBlock(c,side,si){var why=muWhy(c.k,mu.hero,side,c.avg);
  return '<div class="muc"><div class="muhd"><b>'+c.name+'</b><span class="q '+(side>0?'qb':'qg')+'">'+ppc(c.avg)+' vs you</span></div><div class="muw">'+why+'</div>'+
-  c.ex.map(function(x,j){return '<button class="mux" data-mux="'+(side>0?'b':'d')+','+si+','+j+'">'+mini(x.h)+'<span class="mue">They '+(x.e*100).toFixed(1)+'% · you '+(100-x.e*100).toFixed(1)+'%<br><small>'+x.tag+' sampled · tap to load as Player '+(2-mu.p)+'</small></span></button>';}).join('')+'</div>';}
-function renderMu(){var b=$('mB'),h='<div class="muhero">'+mini(mu.hero)+'<span>Player '+(mu.p+1)+' · heads-up all-in preflop</span></div>';
+  c.ex.map(function(x,j){return muEx(x,(side>0?'b':'d')+','+si+','+j,x.tag+' sampled');}).join('')+'</div>';}
+function muCN(k){for(var i=0;i<MU_CLASSES.length;i++)if(MU_CLASSES[i][0]===k)return MU_CLASSES[i][1];return k;}
+function renderMu(){var b=$('mB'),st=b.scrollTop,h='<div class="muhero">'+mini(mu.hero)+'<span>Player '+(mu.p+1)+' · heads-up all-in preflop</span></div>';
  $('mT').textContent='Matchups: '+hs(mu.hero);
- if(!mu.r){h+='<div class="mupb"><i style="width:'+Math.round(mu.prog/mu.of*100)+'%"></i></div><div class="muted">Simulating hand classes… '+mu.prog+' / '+mu.of+'</div>';b.innerHTML=h;return;}
+ var bar='<div class="mupb"><i style="width:'+Math.round(mu.prog/mu.of*100)+'%"></i></div>';
+ if(!mu.r){h+=bar+'<div class="muted">Simulating hand classes… '+Math.min(mu.prog,MU_CLASSES.length)+' / '+MU_CLASSES.length+'</div>';b.innerHTML=h;return;}
  var r=mu.r,B=r.beat,D=r.dom,tk;
  if(D.length&&D[0].avg>.5)tk='Every class is a favourite against you (even '+D[0].name+' gets '+ppc(D[0].avg)+'): this hand should usually fold to real action.';
  else if(B.length&&B[0].avg<.5)tk='No class is a favourite against you (toughest: '+B[0].name+', '+ppc(B[0].avg)+'). Plays best vs '+muNames(D.slice(0,2))+'.';
  else tk='Plays best against '+muNames(D.slice(0,2))+'; avoid big pots vs '+muNames(B.slice(0,2))+'.';
+ if(r.top&&r.top.length)tk+=' Strongest specific hand found: '+muCN(r.top[0].k)+' like '+hs(r.top[0].h)+' ('+ppc(r.top[0].e)+' vs you).';
  h+='<div class="fx">'+tk+'</div>';
+ h+='<h4>Strongest hands vs you</h4>';
+ if(!r.top)h+=bar+'<div class="muted">Searching for the strongest specific hands…</div>';
+ else h+='<div class="muc">'+r.top.map(function(x,i){return muEx(x,'t,'+i,'#'+(i+1)+' · '+muCN(x.k));}).join('')+'<div class="muted" style="margin-top:4px">Best of '+r.nc+' sampled candidates (biased to aces, high pairs, higher rundowns and your suits), top 15 re-run with '+r.o.sb+' boards, the 5 shown re-measured on '+r.o.fb+' fresh boards (±1.5%). A search, not exhaustive.</div></div>';
  h+='<h4>'+(B.length&&B[0].avg>=.5?'Hands that beat you':'Toughest for you (none is a favourite)')+'</h4>'+B.map(function(c,i){return muBlock(c,1,i);}).join('');
  h+='<h4>Hands you dominate</h4>'+D.map(function(c,i){return muBlock(c,-1,i);}).join('');
  h+='<details><summary>All '+r.classes.length+' classes (their equity vs you)</summary>'+T(['Class','Them','You'],r.classes.map(function(c){return {v:[c.name+'<br><span style="font-size:11px;color:#8e8e93">'+c.rule+'</span>',ppc(c.avg),ppc(1-c.avg)]};}))+
-  (r.missing.length?'<p class="muted">Not possible with your cards: '+r.missing.join(', ')+'.</p>':'')+'</details>';
- h+='<div class="muted">'+r.o.n+' random hands per class × '+r.o.t+' boards each; shown examples re-run with '+r.o.rt+' boards. Class averages carry about ±2–3% sampling noise'+(mu.ms?' · '+(mu.ms/1000).toFixed(1)+' s':'')+'.</div>';
- b.innerHTML=h;}
-function openMu(p){if(hands[p].length!==5)return;closeMu(true);mu.p=p;mu.hero=sorted(hands[p]);mu.r=null;mu.prog=0;mu.of=MU_CLASSES.length;mu.t0=Date.now();mu.ms=0;
- var w=mu.w=new Worker(URLW),id=++mu.id;w.onmessage=function(e){var d=e.data;if(d.id!==mu.id)return;if(d.prog){mu.prog=d.prog;mu.of=d.of;}if(d.fin){mu.r=d.r;mu.ms=Date.now()-mu.t0;w.terminate();if(mu.w===w)mu.w=null;}renderMu();};
+  (r.missing.length?'<p class="muted">Not possible with your cards: '+r.missing.map(muCN).join(', ')+'.</p>':'')+'</details>';
+ h+='<div class="muted">'+r.o.n+' random hands per class × '+r.o.t+' boards each; shown examples re-run with '+r.o.rt+' boards. Class averages carry about ±2–3% sampling noise. Trips/quads are never dealt'+(mu.ms?' · '+(mu.ms/1000).toFixed(1)+' s':'')+'.</div>';
+ b.innerHTML=h;b.scrollTop=st;}
+function openMu(p){if(hands[p].length!==5)return;closeMu(true);mu.p=p;mu.hero=sorted(hands[p]);mu.r=null;mu.prog=0;mu.of=MU_CLASSES.length+3;mu.t0=Date.now();mu.ms=0;
+ var w=mu.w=new Worker(URLW),id=++mu.id;w.onmessage=function(e){var d=e.data;if(d.id!==mu.id)return;if(d.prog){mu.prog=d.prog;mu.of=d.of;}if(d.part){mu.r=d.part;}if(d.fin){mu.r=d.r;mu.ms=Date.now()-mu.t0;w.terminate();if(mu.w===w)mu.w=null;}renderMu();};
  w.postMessage({mu:1,id:id,h:mu.hero});renderMu();$('mB').scrollTop=0;document.body.classList.add('open-mu');}
 function closeMu(keep){mu.id++;if(mu.w){mu.w.terminate();mu.w=null;}if(!keep)document.body.classList.remove('open-mu');}
 function muOpen(){return document.body.classList.contains('open-mu');}
 document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-mu]');if(!t)return;e.stopPropagation();e.preventDefault();openMu(+t.dataset.mu);},true);
 $('mscrim').onclick=function(){closeMu();};$('mX').onclick=function(){closeMu();};
-$('mB').onclick=function(e){var t=e.target.closest('[data-mux]');if(!t||!mu.r)return;var a=t.dataset.mux.split(','),c=(a[0]==='b'?mu.r.beat:mu.r.dom)[+a[1]],x=c.ex[+a[2]],q=1-mu.p;
+$('mB').onclick=function(e){var t=e.target.closest('[data-mux]');if(!t||!mu.r)return;var a=t.dataset.mux.split(','),x=a[0]==='t'?mu.r.top[+a[1]]:(a[0]==='b'?mu.r.beat:mu.r.dom)[+a[1]].ex[+a[2]],q=1-mu.p;
  if(x.h.some(function(k){return hands[mu.p].indexOf(k)>=0;}))return; // never conflicts (sampled from the cards the hero isn't holding)
  hands[q].length=0;x.h.forEach(function(k){hands[q].push(k);});closeMu();changed(q);};
 var info={k:null,p:0};
@@ -861,8 +944,12 @@ eq:function(p){var hh=hands[0].length===5&&hands[1].length===5,E=res[p]||{},H2=r
  return {t:'Win / Tie / Equity',h:s};},
 mu:function(){return {t:'Matchups (crossed swords)',h:'<p>Which <b>types</b> of hands do best and worst against this hand <b>heads-up, all-in preflop</b> (random 5-card board, best hand uses exactly 2 hole + 3 board cards, ties split). There are far too many hands to list, so the sheet groups them into '+MU_CLASSES.length+' recognisable classes:</p>'+
  T(['Class','Rule (first match wins)'],MU_CLASSES.map(function(c){return {v:['<b>'+c[1]+'</b>',c[2]]};}),true)+
- '<h4>Method</h4><p>For each class the app deals <b>20 random hands</b> of that class from the cards you are not holding (every hand of the class equally likely) and runs <b>140 random boards</b> for each against your hand. The class average is their mean equity vs you. The 3 highest classes are “hands that beat you”, the 3 lowest “hands you dominate”. For each shown class it re-runs the strongest/weakest sampled hand and a typical (median) one with <b>500 boards</b> for the numbers shown.</p>'+
- '<p><b>Noise:</b> a class average is accurate to about ±2–3% (different samples each time), so classes a few % apart can swap places. The one-line reasons are generic structural rules (pairs, connectedness, suited aces), not computed facts about each board.</p><p>Tap an example to load it as the other player and see the exact head-to-head.</p>'};},
+ '<p>Trips and quads are left out: they are nearly unplayable, and no sampled or searched hand ever contains three of a rank. Small and mixed double pairs are separate classes because they play very differently (e.g. vs 98765 a mixed pair like KK55 wins ~58%, two small pairs like 6633 ~50%). Suited-ace + junk hands sit inside “Unpaired, no rundown” (they scored within ~2% of other unpaired hands).</p>'+
+ '<h4>Method</h4><p><b>Classes:</b> for each class the app deals <b>16 random hands</b> of that class from the cards you are not holding (every hand of the class equally likely) and runs <b>140 random boards</b> for each against your hand. The class average is their mean equity vs you. The 3 highest classes are “hands that beat you”, the 3 lowest “hands you dominate”. For each shown class it re-runs the 3 most extreme sampled hands and the median one with <b>400 boards</b> and shows the most extreme and the typical one.</p>'+
+ '<p><b>Strongest hands vs you:</b> a search over about 300 candidate hands – the sampled hands of the top 4 classes plus hands generated with a bias toward aces, pairs above your cards, rundowns one to three ranks above yours, and suits you hold (to contest your flushes). Every candidate runs 50 boards, the best 30 run 250, the best 15 run <b>1,500 boards</b>, and the top 5 are then re-measured on <b>1,200 fresh boards</b> (about ±1.5%; fresh boards avoid the upward bias of quoting the luckiest of 15 estimates) and shown in that order. It is a sampled search, not an exhaustive one: a slightly stronger hand may exist.</p>'+
+ '<p><b>Boards:</b> one pool of 3,000 random boards (from the cards you are not holding) with your hand pre-evaluated; each opponent uses only the boards that avoid its cards, which are exactly uniform boards for that matchup.</p>'+
+ '<p><b>Reasons</b> next to each example are computed from the two actual hands and are always true for them: pair vs pair and pair vs your top card, set blockers, the higher card in a flush suit you both hold (with two flushes in one suit the higher hole card wins), flush suits only one of you can make, double- vs single-suited, the most connected 5-rank windows (higher straights, cards blocking the other’s straights) and cards above/below all of yours. <span style="color:#30d158">✓ green</span> = good for you, <span style="color:#ff453a">✗ red</span> = bad for you. They describe structure, not a guarantee on every board. The one-line class notes are general rules.</p>'+
+ '<p><b>Noise:</b> a class average is accurate to about ±2–3% (different samples each time), so classes a few % apart can swap places.</p><p>Tap an example to load it as the other player and see the exact head-to-head.</p>'};},
 score:function(p){var H=curH(p),s='';
  s+='<p>The line under the equity numbers reads: <b>tier · points · percentile · vs 3-bet</b>. The first three come from the <b>Approach 1</b> point system (“patched additive”). The vs 3-bet action comes from the coach’s facing-a-3-bet model, which starts from those points. None of them use the Monte Carlo equity.</p>';
  if(H){var D=v3D(H);
