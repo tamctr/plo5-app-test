@@ -19,13 +19,12 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .pt .clr:disabled{opacity:.3}
 .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .cd{position:relative;aspect-ratio:5/7;border-radius:7px;cursor:pointer;overflow:hidden;user-select:none}
-.cd.face{background:linear-gradient(180deg,#fff 0%,#f1f1f1 70%,#dcdcdc 100%);border:1px solid #9a9a9a;box-shadow:0 2px 4px rgba(0,0,0,.5)}
-.cd .cr{position:absolute;left:5px;top:3px;text-align:center;line-height:1;font-size:17px;font-weight:600}
-.cd .cr i{display:block;font-style:normal;font-size:15px;margin-top:1px}
-.cd .big{position:absolute;left:0;right:0;text-align:center;padding-left:14%;bottom:4px;font-family:Georgia,"Times New Roman",serif;font-size:50px;line-height:1;font-weight:400}
-.cd .big.t{font-size:38px;letter-spacing:-3px;padding-left:18%}
-.cd .bs{display:none}
-.red{color:#e0141e}.blk{color:#111}
+/* card faces: white, soft shadow, bold centred rank over a big suit; one SVG per face so it scales with the card (no emoji suits) */
+.cd.face{background:#fff;border:1px solid rgba(0,0,0,.08);box-shadow:0 3px 8px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.3)}
+.cd.face svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cd.face text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;font-weight:800;fill:currentColor}
+/* four-colour deck */
+.s0{color:#111}.s1{color:#d7141f}.s2{color:#1769d6}.s3{color:#0e8a3c}
 .cd.back{border:3px solid #fff;background:#c3141d;box-shadow:0 2px 4px rgba(0,0,0,.5)}
 .cd.back:before{content:"";position:absolute;inset:3px;border:1px solid rgba(255,255,255,.45);border-radius:3px;
  background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(255,255,255,.18) 6px 7px),repeating-linear-gradient(-45deg,transparent 0 6px,rgba(255,255,255,.18) 6px 7px),radial-gradient(circle at 50% 50%,#e8323a 0 28%,rgba(255,255,255,.35) 29% 31%,transparent 32%),#c3141d}
@@ -63,12 +62,17 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .grab{width:40px;height:5px;border-radius:3px;background:#555;margin:0 auto 8px}
 .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .sh b{font-size:16px}.sh .done{background:none;border:none;color:#ff9500;font-size:17px;font-weight:600;cursor:pointer}
-.mini{display:flex;gap:5px;margin-bottom:10px}.mini .cd{width:44px;flex:none}.mini .cd .cr{font-size:12px;left:3px}.mini .cd .cr i{font-size:11px}.mini .cd .big{font-size:24px}.mini .cd .big.t{font-size:19px;letter-spacing:-2px}.mini .cd .bs{display:none}
+.mini{display:flex;gap:5px;margin-bottom:10px}.mini .cd{width:44px;flex:none;border-radius:5px}
 .mini .cd.back{border-width:2px}
 .pick{display:flex;gap:8px}.suits{display:flex;flex-direction:column;gap:8px}
 .btn{background:#3a3a3c;border:none;color:#fff;border-radius:10px;font-size:20px;font-weight:600;height:46px;cursor:pointer}
 .btn:active{background:#545456}.btn:disabled{opacity:.2}
-.suits .btn{width:54px;background:#f2f2f2;font-size:24px}.suits .btn.on{outline:3px solid #ff9500}
+.suits .btn{width:54px;background:#fff;display:flex;align-items:center;justify-content:center}.suits .btn svg{width:28px;height:28px}.suits .btn.on{outline:3px solid #ff9500;outline-offset:1px}
+/* rank picker keys: white card-style keys in the chosen suit's colour; used or unavailable keys go dark grey */
+.btn.pc{background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:3px;font-size:24px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
+.btn.pc svg{width:20px;height:20px}.btn.pc:active{background:#ddd}
+.btn.s0{color:#111}.btn.s1{color:#d7141f}.btn.s2{color:#1769d6}.btn.s3{color:#0e8a3c}
+.btn.pc:disabled{background:#2c2c2e;color:#636366;box-shadow:none;opacity:1}.btn.pc:disabled svg{opacity:.6}
 .grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .acts{display:flex;gap:8px;margin-top:10px}.acts .btn{flex:1;font-size:16px}
 .orange{background:#ff9500!important;color:#000}
@@ -491,8 +495,16 @@ function run(k,msg){stop(k);var w=workers[k]=new Worker(URLW);var id=msg.id=++jo
 function stop(k){jobs[k]++;res[k]={};if(workers[k]){workers[k].terminate();workers[k]=null;}}
 var $=function(id){return document.getElementById(id);};
 function rk(c){return RANKS[c>>2].replace('T','10');}
-function face(c,extra){var col=(c&3)===1||(c&3)===2?'red':'blk',r=rk(c);
- return '<div class="cd face '+col+(extra||'')+'"><div class="cr">'+r+'<i>'+SYM[c&3]+'</i></div><div class="bs">'+SYM[c&3]+'</div><div class="big'+(r.length>1?' t':'')+'">'+r+'</div></div>';}
+// suit shapes on a 100x100 box (spade, heart, diamond, club), drawn as SVG so iOS never swaps in emoji
+var SUITP=['<path d="M50 3C41 18 3 39 3 62c0 14 11 22 23 22 9 0 16-4 20-10-1 11-6 18-14 24h36c-8-6-13-13-14-24 4 6 11 10 20 10 12 0 23-8 23-22C97 39 59 18 50 3z"/>',
+ '<path d="M50 94C21 70 3 52 3 31 3 15 15 5 29 5c10 0 17 6 21 14 4-8 11-14 21-14 14 0 26 10 26 26 0 21-18 39-47 63z"/>',
+ '<path d="M50 2L87 50 50 98 13 50z"/>',
+ '<circle cx="50" cy="27" r="22"/><circle cx="26" cy="58" r="22"/><circle cx="74" cy="58" r="22"/><circle cx="50" cy="52" r="13"/><path d="M45 56c0 20-5 32-14 42h38c-9-10-14-22-14-42z"/>'];
+function suitSvg(i,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor">'+SUITP[i]+'</svg>';}
+// face: 50x70 box, rank cap height ≈ 45% of the card, suit ≈ 40%
+function face(c,extra){var r=rk(c),su=c&3;
+ return '<div class="cd face s'+su+(extra||'')+'" aria-label="'+RANKS[c>>2]+SUITS[su]+'"><svg viewBox="0 0 50 70" aria-hidden="true"><text x="25" y="34" text-anchor="middle" font-size="42"'+(r.length>1?' textLength="44" lengthAdjust="spacingAndGlyphs"':'')+'>'+r+'</text>'+
+  '<g transform="translate(11 40.5) scale(.28)" fill="currentColor">'+SUITP[su]+'</g></svg></div>';}
 function back(extra){return '<div class="cd back'+(extra||'')+'"></div>';}
 function usedBy(c){return hands[0].indexOf(c)>=0||hands[1].indexOf(c)>=0;}
 function fpc(x){return x>=99.95&&x<100?x.toFixed(3).replace(/0+$/,''):x.toFixed(1);}
@@ -543,8 +555,8 @@ function paint(){
 function renderSheet(){
  $('shT').textContent='Player '+(act+1)+' · '+hands[act].length+'/5';
  var m='';for(var i=0;i<5;i++)m+=hands[act][i]!=null?face(hands[act][i],i===tgt?' tgt':''):back(i===tgt?' tgt':'');$('mini').innerHTML=m;
- $('suits').innerHTML=SYM.map(function(x,i){return '<button class="btn'+(i===suit?' on':'')+'" data-s="'+i+'"><span class="'+(i===1||i===2?'red':'blk')+'">'+x+'</span></button>';}).join('');
- var g='',fl=hands[act].length>=5;for(var r=12;r>=0;r--){var c=r*4+suit;g+='<button class="btn" data-c="'+c+'" '+(usedBy(c)||fl?'disabled':'')+'>'+RANKS[r].replace('T','10')+'</button>';}
+ $('suits').innerHTML=SYM.map(function(x,i){return '<button class="btn s'+i+(i===suit?' on':'')+'" data-s="'+i+'" aria-label="'+['spades','hearts','diamonds','clubs'][i]+'">'+suitSvg(i)+'</button>';}).join('');
+ var g='',fl=hands[act].length>=5;for(var r=12;r>=0;r--){var c=r*4+suit;g+='<button class="btn pc s'+suit+'" data-c="'+c+'" '+(usedBy(c)||fl?'disabled':'')+'>'+RANKS[r].replace('T','10')+suitSvg(suit)+'</button>';}
  $('grid').innerHTML=g;$('sclr').disabled=!hands[act].length;
 }
 function openSheet(p,i){act=p;tgt=Math.min(i,hands[p].length);document.body.classList.add('open-sheet');renderSheet();build();}
