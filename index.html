@@ -87,6 +87,7 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .seg{display:flex;background:#333;border:1px solid #555;border-radius:8px;padding:2px;gap:2px}
 .seg button{width:40px;height:34px;border:none;border-radius:6px;background:none;color:#ddd;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
 .seg button.on{background:#ff9500;color:#000}
+.rnd{gap:8px}.seg.sn button{width:34px}
 /* facing a 3-bet: selectors, action */
 .v3c{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}.seg.sw button{width:auto;min-width:56px;padding:0 10px;font-size:14px}
 .tog{width:52px;height:32px;border-radius:16px;border:1px solid #555;background:#333;position:relative;cursor:pointer;padding:0}.tog i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#aaa;transition:left .15s}
@@ -341,6 +342,7 @@ function mcVsRandom(hero,nOpp,trials,rnd){
   rnd=rnd||Math.random;var used=new Array(52).fill(false);hero.forEach(function(c){used[c]=true;});
   var deck=[];for(var c=0;c<52;c++)if(!used[c])deck.push(c);
   var need=5*nOpp+5,w=0,t=0,eq=0,n=deck.length,opp=[],board=[0,0,0,0,0];
+  if(nOpp<1||need>n)throw new Error('mcVsRandom: '+nOpp+' opponents need '+need+' cards, only '+n+' left'); // with 5 hero cards, up to 8 opponents fit (9 would need 50 of the 47 left)
   for(var o=0;o<nOpp;o++)opp.push([0,0,0,0,0]);
   for(var k=0;k<trials;k++){
     for(var i=0;i<need;i++){var j=i+Math.floor(rnd()*(n-i));var tmp=deck[i];deck[i]=deck[j];deck[j]=tmp;}
@@ -513,7 +515,7 @@ function build(){
 function paint(){
  var full=[hands[0].length===5,hands[1].length===5],hh=full[0]&&full[1],H2=res[2],rm=randMode(),rh=rm>=0&&H2.rn===nr;
  for(var p=0;p<2;p++){var b=$('body'+p);if(!b)continue;
-  if(rm>=0&&p!==rm){b.innerHTML='<div class="rnd"><span class="rl">Opponents</span><div class="seg" role="radiogroup" aria-label="number of random opponents">'+[1,2,3,4,5].map(function(n){return '<button data-nr="'+n+'" role="radio" aria-checked="'+(n===nr)+'"'+(n===nr?' class="on"':'')+'>'+n+'</button>';}).join('')+'</div></div>'+
+  if(rm>=0&&p!==rm){b.innerHTML='<div class="rnd"><span class="rl">Opponents</span><div class="seg sn" role="radiogroup" aria-label="number of random opponents">'+[1,2,3,4,5,6,7].map(function(n){return '<button data-nr="'+n+'" role="radio" aria-checked="'+(n===nr)+'"'+(n===nr?' class="on"':'')+'>'+n+'</button>';}).join('')+'</div></div>'+
    '<div class="muted" style="text-align:center;margin:2px 0 6px">Player '+(rm+1)+' vs '+(nr>1?nr+' random hands':'1 random hand')+', new hands every trial. Tap a card to pick a real hand.</div>';continue;}
   if(!full[p]){b.innerHTML=hands[p].length?'<div class="hint" style="padding:8px">Pick '+(5-hands[p].length)+' more card'+(hands[p].length===4?'':'s')+'</div>':'';continue;}
   var E=res[p],w,t,q,lab;
@@ -604,7 +606,7 @@ eq:function(p){var hh=hands[0].length===5&&hands[1].length===5,E=res[p]||{},H2=r
   '<p>Equity is your share of the pot if all the money went in now. Boards done: '+n.toLocaleString()+' of 30,000'+(H2.fin?'':' (still running – numbers update every 2,000 boards)')+'. Precision: about ±'+se(w!=null?w+t/2:.5,n)+' points (1 standard error).</p>'+
   '<p class="muted">“Hi” = high-hand only. No betting, no folding: pure showdown equity.</p>';}
  else if(randMode()===p){var N=nr,rh=H2.rn===N,w=rh?H2.w:null,t=rh?H2.t:null,q=rh?H2.eq:null,n=rh?H2.done||0:0,ts=q!=null?q-w:null;
-  s+='<p><b>Only one hand entered, so it plays '+(N>1?N+' random hands':'1 random hand')+'.</b> Pick 1–5 opponents with the selector in the empty player’s area. Each of <b>30,000</b> Monte Carlo trials deals '+(N>1?N+' new random 5-card hands':'a new random 5-card hand')+' and a 5-card board from the 47 unseen cards. Best hand = exactly 2 hole + 3 board cards, high only.</p>'+
+  s+='<p><b>Only one hand entered, so it plays '+(N>1?N+' random hands':'1 random hand')+'.</b> Pick 1–7 opponents with the selector in the empty player’s area. Each of <b>30,000</b> Monte Carlo trials deals '+(N>1?N+' new random 5-card hands':'a new random 5-card hand')+' and a 5-card board from the 47 unseen cards. Best hand = exactly 2 hole + 3 board cards, high only.</p>'+
   T(['vs '+N+' random','This hand'],[{v:['<b>Win</b> = beats '+(N>1?'every opponent':'the opponent')+' outright',pf(w)]},{v:['<b>Tie</b> = shares the best hand with k−1 others (pot split k ways)',pf(t)]},{v:['Lose = '+(N>1?'someone has':'opponent has')+' a better hand',rh?pf(1-w-t):'–']}])+
   '<div class="fx">Equity = Win + tie share (each k-way split counts 1/k)<br>= '+f(w)+' + '+f(ts)+' = <b>'+f(q)+'%</b>'+(N>1?'<br>Fair share with '+(N+1)+' players = '+(100/(N+1)).toFixed(2)+'%':'')+'</div>'+
   '<p>'+(N>1?'With 3+ players a tie can be a 3- or more-way split, so the tie share is at most ½ × Tie. ':'Heads-up the tie share is ½ × Tie. ')+'Trials done: '+n.toLocaleString()+' of 30,000'+(H2.fin?'':' (running)')+'. Precision: about ±'+se(q!=null?q:.5,n)+' points (1 SE).</p>'+
@@ -666,7 +668,7 @@ linear:function(p){var s='',L=hands[p].length===5?heuristicLinear(sorted(hands[p
 eqrand:function(p){var E=res[p]||{},s='',pc=E.e4!=null?pct(E.e4):null;
  s+='<p>All-in preflop equity of this hand vs <b>random</b> hands, via Monte Carlo. Each trial deals random opponent hands and a random board from the unseen cards. Best hand = exactly 2 hole + 3 board cards. Win counts 1. A tie among k players counts 1/k.</p>'+
  T(['','This hand'],[{v:['vs 3 random (4-way)',pf(E.e4)]},{v:['vs 1 random (heads-up)',pf(E.e1)]},{v:['Trials (each)',(E.done||0).toLocaleString()+' / 30,000']}])+
- '<p>A random hand averages 25% 4-way and 50% heads-up, so above those is better than average. These two are fixed runs. When only one hand is entered, the main Win/Tie/Equity row is a separate run vs the number of random opponents you pick (1–5).</p>'+
+ '<p>A random hand averages 25% 4-way and 50% heads-up, so above those is better than average. These two are fixed runs. When only one hand is entered, the main Win/Tie/Equity row is a separate run vs the number of random opponents you pick (1–7).</p>'+
  '<h4>Equity percentile (4-way)</h4><p>Where this hand’s 4-way equity sits among <b>2,000 random hands</b> (2,000 trials each). These are stored as 201 cut points, one every 0.5 percentile, and the app interpolates between them.'+(pc!=null?' This hand: '+pf(E.e4)+' → <b>'+pc.toFixed(1)+'th</b>.':'')+'</p>'+
  '<p class="muted">This is a measured-equity percentile. The “pct” on the score line is a different thing: the points percentile over all 2,598,960 hands.</p>';
  return {t:'Equity vs random hands',h:s};},
