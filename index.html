@@ -127,6 +127,16 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .qb{color:#ff6961}.qg{color:#30d158}
 .ibody details{margin:8px 0}.ibody summary{color:#ff9500;cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
 .sumw{display:grid;grid-template-columns:1fr 34px 34px;align-items:center;margin:2px 0 0}.sumw .sum{margin:0;min-height:28px}.sumw .ib{grid-column:2}
+.fo{display:grid;grid-template-columns:1fr 34px 34px;align-items:center;margin:0}
+.foh{grid-column:1;display:flex;align-items:center;gap:8px;background:none;border:none;padding:4px 0 4px 30px;color:#aaa;font:inherit;font-size:13px;text-align:left;cursor:pointer;min-height:30px}
+.foh b{color:#ff9500;font-size:12px;text-transform:uppercase;letter-spacing:.6px;font-weight:600;white-space:nowrap}.foh .fos{font-variant-numeric:tabular-nums;white-space:nowrap}
+.fo>.ib{grid-column:2}.fo>.chev{grid-column:3;grid-row:1}.fo.open>.chev svg{transform:rotate(180deg)}
+.fob{grid-column:1 / -1;display:none;padding:2px 6px 8px 30px}.fo.open .fob{display:block}
+.frw{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;align-items:center;font-size:14px;color:#eee;padding:3px 0;position:relative}
+.frw span:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums}.frw span:nth-child(3){color:#8e8e93;font-size:12px}
+.frw.z{color:#666}.frw.z span:nth-child(2){color:#666}.frw small{color:#8e8e93;font-size:11px}
+.frw i{position:absolute;left:0;bottom:0;height:2px;background:#ff9500;opacity:.55;border-radius:1px}
+.frh{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;font-size:11px;color:#8e8e93;text-transform:uppercase;letter-spacing:.4px;margin:8px 0 1px}.frh span:nth-child(n+2){text-align:right}
 .sec.sx{display:flex;align-items:center;justify-content:space-between;gap:6px}.sec.sx .ib{margin:-9px -6px -9px 0}
 .row .ib{margin:-8px -6px -8px 2px}.row .rv{display:inline-flex;align-items:center}
 .fg label{justify-content:space-between}.fg label .lt{display:flex;align-items:center;justify-content:space-between;min-height:16px}.fg label .ib{margin:-9px -6px -9px 0}
@@ -748,6 +758,37 @@ function muWhy(k,hero,side,avg){var f=muFeat(hero),RN=MU_RN,pr=function(r){retur
  if(k==='smalldp'&&f.top>=8)return 'Their small pairs make small sets: your bigger pairs and draws are ahead.';
  if(k==='smalldp'&&run)return 'Small pairs need a set; your connected cards make straights and two pair more often.';
  return 'They win only '+pct+' vs you on average in this sample.';}
+// ---- Flop chances: exact over every flop (C(47,3) = 16,215 from the 47 cards you can't see), PLO5 rule = exactly 2 hole + 3 flop cards.
+// Made hand = best 2+3 hand on the flop (exclusive rows, sum 100%). Draws (overlap with made rows and with each other) count only when the
+// draw is to a better hand class than the made hand: flush draw = 2+ hole cards of a suit with exactly 2 of it on the flop (and no flush or better made);
+// straight draw (no straight or better made) = number of ranks whose turn card would complete a straight (live ranks only): 1 gutshot, 2 open-ended / double gutshot, 3+ wrap.
+var FL_MADE=[['sf','Straight flush'],['quads','Quads'],['fh','Full house'],['fl','Flush'],['st','Straight'],['set','Set','pocket pair + flop card'],['trips','Trips','paired flop + hole card'],['tp','Two pair'],['pair','One pair'],['hc','High card']];
+var FL_DRAW=[['nfd','Nut flush draw'],['fd','Flush draw','not the nut'],['wrap','Wrap','3+ ranks'],['oe','Open-ended','or double gutshot, 2 ranks'],['gs','Gutshot','1 rank'],['combo','Combo draw','flush + open-ended/wrap'],['any','Any draw','flush or straight']];
+var FL_WIN=(function(){var w=[(1<<12)|15];for(var hi=4;hi<=12;hi++)w.push(31<<(hi-4));return w;})();
+function flPop(m){var c=0;while(m){m&=m-1;c++;}return c;}
+// can 2 hole ranks (mask hm) + 3 board ranks (mask bm) make a straight?
+function flSt(hm,bm){for(var i=0;i<FL_WIN.length;i++){var w=FL_WIN[i],m=w&~bm;if(flPop(m)<=2&&(m&~hm)===0&&flPop(hm&w)>=2)return true;}return false;}
+// per-hand info for flCat: cards held, rank counts, suit counts, rank mask
+function flHand(h){var I={h:h,inH:[],hc:[0,0,0,0,0,0,0,0,0,0,0,0,0],hs:[0,0,0,0],hm:0,fc:[0,0,0,0,0,0,0,0,0,0,0,0,0],fs:[0,0,0,0]};
+ for(var i=0;i<5;i++){I.inH[h[i]]=1;I.hc[h[i]>>2]++;I.hs[h[i]&3]++;I.hm|=1<<(h[i]>>2);}return I;}
+var FL_CAT=['hc','pair','tp','trips','st','fl','fh','quads','sf'];
+// one flop: made key, flush draw (0 none / 1 non-nut / 2 nut), nr = live ranks that complete a straight, outs = live cards of those ranks
+function flCat(I,b0,b1,b2){var h=I.h,best=0,x,hc=I.hc,fc=I.fc,fs=I.fs;
+ for(x=0;x<10;x++){var v=eval5(h[H2[x][0]],h[H2[x][1]],b0,b1,b2);if(v>best)best=v;}
+ var cat=Math.floor(best/1e6),key=FL_CAT[cat];if(cat===3)key=hc[Math.floor((best-3e6)/169)]>=2?'set':'trips';
+ fc[b0>>2]++;fc[b1>>2]++;fc[b2>>2]++;fs[b0&3]++;fs[b1&3]++;fs[b2&3]++;
+ var fd=0,nr=0,outs=0;
+ if(cat<5)for(var s=0;s<4;s++)if(I.hs[s]>=2&&fs[s]===2){var r=12;while(r>=0&&(r*4+s===b0||r*4+s===b1||r*4+s===b2))r--;fd=I.inH[r*4+s]?2:1;}
+ if(cat<4){var bm=(1<<(b0>>2))|(1<<(b1>>2))|(1<<(b2>>2));for(var r2=0;r2<13;r2++){var live=4-hc[r2]-fc[r2];if(live>0&&!(bm>>r2&1)&&flSt(I.hm,bm|1<<r2)){nr++;outs+=live;}}}
+ fc[b0>>2]--;fc[b1>>2]--;fc[b2>>2]--;fs[b0&3]--;fs[b1&3]--;fs[b2&3]--;
+ return {key:key,fd:fd,nr:nr,outs:outs};}
+function flopOdds(h){var I=flHand(h),d=[],i,j,k;for(i=0;i<52;i++)if(!I.inH[i])d.push(i);
+ var R={n:0,made:{},draw:{},outs:{wrap:0,oe:0,gs:0}},M=R.made,D=R.draw;FL_MADE.forEach(function(m){M[m[0]]=0;});FL_DRAW.forEach(function(m){D[m[0]]=0;});
+ for(k=2;k<d.length;k++)for(j=1;j<k;j++)for(i=0;i<j;i++){var c=flCat(I,d[i],d[j],d[k]),nr=c.nr,fd=c.fd;R.n++;M[c.key]++;
+  if(fd===2)D.nfd++;else if(fd===1)D.fd++;
+  if(nr>=3){D.wrap++;R.outs.wrap+=c.outs;}else if(nr===2){D.oe++;R.outs.oe+=c.outs;}else if(nr===1){D.gs++;R.outs.gs+=c.outs;}
+  if(fd&&nr>=2)D.combo++;if(fd||nr)D.any++;}
+ return R;}
 // ---- Range chart (Holdem-style, adapted to PLO5): the 16 Matchups classes laid out in 3 family columns, coloured by Approach 1 points.
 // Data: range.json (gen_range.js: exact over all 2,598,960 hands). Columns = hand families; each column is sorted by average points,
 // trips/quads (not a Matchups class) fill the last cell, greyed out.
@@ -761,7 +802,7 @@ function rgRows(L){return Math.max.apply(null,L.map(function(c){return c.keys.le
 function rgColor(p){var t=Math.max(0,Math.min(1,(p-RG_LO)/(RG_HI-RG_LO)));return 'hsl('+Math.round(t*130)+',72%,'+Math.round(50-6*Math.abs(t-0.45))+'%)';}
 // percentile (0-100, ties half) of a points value over all 2,598,960 hands, from score_a1.js PCT
 function rgPct(p){var x=Math.round(p);return A1.PCT[x]!==undefined?A1.PCT[x]:(x<A1.MINP?0:100);}
-if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq,muReasons:muReasons,muBreak:muBreak,muStBreak:muStBreak,MU_BD:MU_BD,MU_BDN:MU_BDN,muPick:muPick,muGen:muGen,muPool:muPool,muSt:muSt,muRun:muRun,RG_COLS:RG_COLS,RG_SHORT:RG_SHORT,rgLayout:rgLayout,rgRows:rgRows,rgColor:rgColor,rgPct:rgPct,A1:A1};
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq,muReasons:muReasons,muBreak:muBreak,muStBreak:muStBreak,MU_BD:MU_BD,MU_BDN:MU_BDN,muPick:muPick,muGen:muGen,muPool:muPool,muSt:muSt,muRun:muRun,FL_MADE:FL_MADE,FL_DRAW:FL_DRAW,flopOdds:flopOdds,flSt:flSt,flHand:flHand,flCat:flCat,RG_COLS:RG_COLS,RG_SHORT:RG_SHORT,rgLayout:rgLayout,rgRows:rgRows,rgColor:rgColor,rgPct:rgPct,A1:A1};
 // ==ENDCORE==
 </script>
 <script>
@@ -858,6 +899,21 @@ function build(){
    '<div class="cards">'+cs+'</div><div id="body'+p+'"></div></section>';}
  $('players').innerHTML=s;rgZ(0);rgZ(1);paint();
 }
+// ---- Flop chances (exact over all 16,215 flops from the 47 unseen cards; cached per hand) ----
+var fop=[false,false],foC={};
+function foGet(h){var k=handStr(h);if(!foC[k])foC[k]=flopOdds(h);return foC[k];}
+function foPc(c,n){var v=c/n*100;return v===0?'0':v<0.1?v.toFixed(2)+'%':v.toFixed(1)+'%';}
+function foIn(c,n){return c?'1 in '+(n/c<10?(n/c).toFixed(1):Math.round(n/c).toLocaleString('en')):'–';}
+function foRow(name,c,n,sub){var w=c/n*100;return '<div class="frw'+(c?'':' z')+'"><span>'+name+(sub?' <small>'+sub+'</small>':'')+'</span><span>'+foPc(c,n)+'</span><span>'+foIn(c,n)+'</span><i style="width:'+Math.min(100,w)+'%"></i></div>';}
+function foSec(p,h){var R=foGet(h),n=R.n,M=R.made,D=R.draw,tp=M.sf+M.quads+M.fh+M.fl+M.st+M.set+M.trips+M.tp,
+  ao=function(k){return D[k]?'avg '+(R.outs[k]/D[k]).toFixed(1)+' outs':'';};
+ return '<div class="fo'+(fop[p]?' open':'')+'" id="fo'+p+'"><button class="foh" data-fo="'+p+'" aria-expanded="'+fop[p]+'"><b>Flop chances</b><span class="fos">2 pair+ '+Math.round(tp/n*100)+'% · draws '+Math.round(D.any/n*100)+'%</span></button>'+
+  ib('flop',p,'flop chances')+'<button class="chev" data-fo="'+p+'" aria-label="toggle flop chances">'+CHEV+'</button>'+
+  '<div class="fob"><div class="frh"><span>Made hand on the flop</span><span>% flops</span><span>odds</span></div>'+
+  FL_MADE.map(function(m){return foRow(m[1],M[m[0]],n,m[2]);}).join('')+
+  '<div class="frh"><span>Draws (to a better hand)</span><span>% flops</span><span>odds</span></div>'+
+  FL_DRAW.map(function(m){var a=m[0]==='wrap'||m[0]==='oe'||m[0]==='gs'?ao(m[0]):'';return foRow(m[1],D[m[0]],n,(m[2]||'')+(m[2]&&a?' · ':'')+a);}).join('')+
+  '<div class="muted">Exact over all '+n.toLocaleString('en')+' flops from the 47 cards you can’t see (2 hole + 3 board). Made rows add up to 100%; a draw can come with a made hand.</div></div></div>';}
 // fills the stats/summary/details for each player from current hands + worker results
 function paint(){
  var full=[hands[0].length===5,hands[1].length===5],hh=full[0]&&full[1],H2=res[2],rm=randMode(),rh=rm>=0&&H2.rn===nr;
@@ -873,7 +929,7 @@ function paint(){
   var running=((hh||rm===p)&&!H2.fin)||!E.fin;
   b.innerHTML='<div class="st"><span></span><span class="h">Win(%)</span><span class="h">Tie(%)</span><span class="h">Equity(%)</span>'+'<button class="ib mu" data-mu="'+p+'" aria-label="Matchups: which hand types do best and worst against this hand"><span>'+SWORDS+'</span></button>'+ib('eq',p,'Win, Tie and Equity')+'<button class="chev" data-chev="'+p+'" aria-label="details">'+CHEV+'</button>'+
    '<span class="lb">'+lab+'</span><span class="v">'+f(w)+'</span><span class="v">'+f(t)+'</span><span class="v">'+f(q)+'</span></div>'+
-   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:'+AC[v3D(H).action]+'">'+v3D(H).action+'</b>'+(hh?'':rm===p?' · vs '+nr+' random':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+
+   '<div class="sumw"><div class="sum"><span class="tag" style="background:'+TC[H.tier]+'">'+H.tier+'</span><span><b style="color:#eee">'+H.score+' pts</b> · '+fpc(H.percentile)+' pct · vs 3-bet <b style="color:'+AC[v3D(H).action]+'">'+v3D(H).action+'</b>'+(hh?'':rm===p?' · vs '+nr+' random':' · vs 1 random')+(running?' · …':'')+'</span></div>'+ib('score',p,'the score line')+'</div>'+foSec(p,sorted(hands[p]))+
    '<div class="det"><div class="sec sx"><span>Points '+H.score+' · percentile '+fpc(H.percentile)+'</span>'+ib('pts',p,'points')+'</div>'+(H.breakdown.length?H.breakdown.map(prow).join(''):'<div class="row"><span>No scoring features</span><span>0</span></div>')+
    '<div class="row tot"><span>Total</span><span>'+H.score+'</span></div>'+
    '<div class="muted">Premium ≥20 pts (top 10%) · Open ≥16 (top 25%) · Late ≥12 (top 45%) · Limp/call ≥10 (top 60%) · Fold ≤9. Percentile = share of all 2,598,960 PLO5 hands scoring fewer points.</div>'+
@@ -921,6 +977,7 @@ $('players').onclick=function(e){var n0=e.target.closest('[data-rndp]');if(n0){r
  var k=e.target.closest('[data-clr]');if(k){var q=+k.dataset.clr;hands[q].length=0;changed(q);return;}
  var g=e.target.closest('[data-v3t],[data-v3p],[data-v3s],[data-v3f]');if(g){var d=g.dataset;if(d.v3t)v3t=d.v3t;if(d.v3p)v3p=d.v3p;if(d.v3s)v3s=d.v3s;if(d.v3f)v3f=!v3f;paint();return;}
  var r=e.target.closest('[data-nr]');if(r){var n=+r.dataset.nr;if(n!==nr){nr=n;stop(2);runRand();build();}return;}
+ var fo=e.target.closest('[data-fo]');if(fo){var y=+fo.dataset.fo;fop[y]=!fop[y];$('fo'+y).classList.toggle('open',fop[y]);fo.closest('.fo').querySelector('.foh').setAttribute('aria-expanded',fop[y]);return;}
  var v=e.target.closest('[data-chev]');if(v){var z=+v.dataset.chev;open[z]=!open[z];$('pl'+z).classList.toggle('open',open[z]);}};
 $('mini').onclick=function(e){var c=e.target.closest('.cd');if(!c)return;var i=[].indexOf.call($('mini').children,c);
  if(hands[act][i]!=null){hands[act].splice(i,1);tgt=i;changed(act);}else{tgt=hands[act].length;renderSheet();build();}};
@@ -1149,6 +1206,16 @@ eqrand:function(p){var E=res[p]||{},s='',pc=E.e4!=null?pct(E.e4):null;
  '<h4>Equity percentile (4-way)</h4><p>Where this hand’s 4-way equity sits among <b>2,000 random hands</b> (2,000 trials each). These are stored as 201 cut points, one every 0.5 percentile, and the app interpolates between them.'+(pc!=null?' This hand: '+pf(E.e4)+' → <b>'+pc.toFixed(1)+'th</b>.':'')+'</p>'+
  '<p class="muted">This is a measured-equity percentile. The “pct” on the score line is a different thing: the points percentile over all 2,598,960 hands.</p>';
  return {t:'Equity vs random hands',h:s};},
+flop:function(p){var ok=hands[p].length===5,R=ok?foGet(sorted(hands[p])):null;
+ return {t:'Flop chances',h:'<p>How often this hand <b>flops</b> each made hand and draw. It is <b>exact</b>: every one of the <b>16,215</b> possible flops (3 cards from the 47 you can’t see) is dealt once. The other player’s cards are ignored, so the numbers describe your hand on its own.</p>'+
+ '<p><b>PLO5 rule:</b> a hand must use <b>exactly 2</b> of your 5 hole cards and all 3 flop cards. So four hearts in your hand and one on the flop is <b>not</b> a flush (you need 2 hole + 3 board of the suit), and a board pair counts as trips only with one matching hole card.</p>'+
+ '<h4>Made hand (exclusive)</h4><p>Each flop is counted once, in the row of your best 2+3 hand, so the made rows add up to 100%. <b>Set</b> = a pocket pair plus a matching flop card; <b>Trips</b> = a paired flop plus one matching hole card. A set that also fills up (e.g. 55 on 5KK) is a full house, so the Set row alone is below the 12.5% (1 in 8) that a pocket pair flops a set or better. With a pocket pair you always have at least one pair, so High card is 0.</p>'+
+ '<h4>Draws (overlapping)</h4><p>A draw is listed only if it is to a <b>better hand class than the one you already made</b>: flush draws only without a flush or better, straight draws only without a straight or better. Draws can come together with a made hand (a set with a flush draw counts in both Set and Flush draw), and one flop can have a flush draw and a straight draw, so draw rows do <b>not</b> add up to anything.</p><ul>'+
+ '<li><b>Flush draw</b>: 2+ of your hole cards in a suit and exactly 2 of that suit on the flop (one more on the turn or river makes a 2+3 flush). <b>Nut</b> = you hold the highest card of that suit not on the flop, so your flush would be the best possible one.</li>'+
+ '<li><b>Straight draws</b> are graded by how many different turn ranks would give you a 2+3 straight (ranks with no cards left don’t count): <b>Gutshot</b> = 1 rank, <b>Open-ended</b> (or double gutshot) = 2 ranks (usually 8 outs), <b>Wrap</b> = 3 or more ranks (typically 9–20 outs). “avg outs” = the average number of unseen cards that complete the straight, after the cards in your hand and on the flop.</li>'+
+ '<li><b>Combo draw</b> = a flush draw plus an open-ended draw or wrap on the same flop. <b>Any draw</b> = a flush or straight draw of any kind.</li></ul>'+
+ '<p>Backdoor draws (needing both turn and river) are not counted. Odds “1 in N” = 1 ÷ share.</p>'+
+ (R?'<p class="muted">This hand: one pair or better on '+foPc(R.n-R.made.hc,R.n)+' of flops; set '+foPc(R.made.set,R.n)+'.</p>':noHand(p))};},
 sm:function(){var c=smCell(),s='';
  s+='<p>Is calling preflop to <b>set-mine</b> a pocket pair profitable on set value alone?</p>'+
  '<h4>The model</h4><p>You call <b>C</b>. <b>S</b> = effective stack still behind after the call. You flop a set or better <b>12.488%</b> of the time (1 in 8, for any pair). Miss → fold, lose C. Hit → win the preflop pot plus whatever the payoff model gets in (see Payoff model ⓘ). Side-card value, rake, blinds, position and turn/river play are ignored. That makes it conservative for good hands.</p>'+
