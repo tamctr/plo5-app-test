@@ -800,8 +800,8 @@ function flopOdds(h){var I=flHand(h),d=[],i,j,k;for(i=0;i<52;i++)if(!I.inH[i])d.
 // ---- Advanced flop chances: made hand x draw combos, with outs split so no card is counted twice
 var FLA_G=[['set','Set'],['top2','Top two pair'],['tp2','Other two pair'],['trips','Trips'],['st','Straight'],['pair','One pair'],['none','No pair']];
 var FLA_D=[['fw','flush draw + wrap'],['fs','flush draw + straight draw'],['f','flush draw'],['w','wrap'],['s','straight draw'],['x','no draw']];
-// outs on the turn (44 unseen after hand + flop): flush = live cards of the draw suit; straight = live cards of completing ranks minus the flush suit;
-// fill-up (set/two pair/trips only) = remaining live cards that make a full house or quads, minus flush-suit and straight cards (only flop or hole ranks can fill)
+// outs on the turn (44 unseen after hand + flop), each card once, in order: fill-up (set/two pair/trips only) = live cards that make a full house or quads
+// (only flop or hole ranks can); flush = live cards of the draw suit not already fill-up; straight = live cards of completing ranks, not flush suit, not fill-up
 function flAdv(h){var I=flHand(h),d=[],i,j,k,G={},fplus=0,n=0;for(i=0;i<52;i++)if(!I.inH[i])d.push(i);
  FLA_G.forEach(function(g){G[g[0]]={n:0};FLA_D.forEach(function(x){G[g[0]][x[0]]={n:0,f:0,s:0,b:0};});});
  for(k=2;k<d.length;k++)for(j=1;j<k;j++)for(i=0;i<j;i++){var b0=d[i],b1=d[j],b2=d[k],c=flCat(I,b0,b1,b2),key=c.key,g;n++;
@@ -809,12 +809,12 @@ function flAdv(h){var I=flHand(h),d=[],i,j,k,G={},fplus=0,n=0;for(i=0;i<52;i++)i
   else if(key==='tp'){var r0=b0>>2,r1=b1>>2,r2=b2>>2,hi=Math.max(r0,r1,r2),lo=Math.min(r0,r1,r2),mid=r0+r1+r2-hi-lo;g=(hi!==mid&&mid!==lo&&I.hc[hi]&&I.hc[mid])?'top2':'tp2';}
   else{fplus++;continue;}
   var fl=c.fd>0,wr=c.nr>=3,sd=c.nr>0,dk=fl?(wr?'fw':sd?'fs':'f'):(wr?'w':sd?'s':'x'),C=G[g][dk];G[g].n++;C.n++;
-  if(fl)C.f+=11-I.hs[c.su];
-  if(sd)for(var r=0;r<13;r++)if(c.sm>>r&1)for(var s=0;s<4;s++){var cd=r*4+s;if(!I.inH[cd]&&s!==c.su)C.s++;}
-  if(g==='set'||g==='top2'||g==='tp2'||g==='trips')for(var q=0;q<d.length;q++){var t=d[q],tr=t>>2;
-   if(t===b0||t===b1||t===b2||(fl&&(t&3)===c.su)||(tr!==b0>>2&&tr!==b1>>2&&tr!==b2>>2&&!I.hc[tr])||(c.sm>>tr&1))continue;
-   var B=[b0,b1,b2,t],ok=false;for(var x=0;x<10&&!ok;x++)for(var y=0;y<4&&!ok;y++){var e=[];for(var z=0;z<4;z++)if(z!==y)e.push(B[z]);if(eval5(h[H2[x][0]],h[H2[x][1]],e[0],e[1],e[2])>=6e6)ok=true;}
-   if(ok)C.b++;}}
+  var FU={};if(g==='set'||g==='top2'||g==='tp2'||g==='trips')for(var q=0;q<d.length;q++){var t=d[q],tr=t>>2;
+   if(t===b0||t===b1||t===b2||(tr!==b0>>2&&tr!==b1>>2&&tr!==b2>>2&&!I.hc[tr]))continue;
+   var B=[b0,b1,b2,t],ok=false;for(var x=0;x<10&&!ok;x++)for(var y=0;y<4&&!ok;y++){var e=[];for(var z=0;z<4;z++)if(z!==y)e.push(B[z]);var v=eval5(h[H2[x][0]],h[H2[x][1]],e[0],e[1],e[2]);if(v>=6e6&&v<8e6)ok=true;}
+   if(ok){FU[t]=1;C.b++;}}
+  if(fl)for(var r1=0;r1<13;r1++){var cf=r1*4+c.su;if(!I.inH[cf]&&cf!==b0&&cf!==b1&&cf!==b2&&!FU[cf])C.f++;}
+  if(sd)for(var r=0;r<13;r++)if(c.sm>>r&1)for(var s=0;s<4;s++){var cd=r*4+s;if(!I.inH[cd]&&s!==c.su&&!FU[cd])C.s++;}}
  return {n:n,g:G,fplus:fplus};}
 // ---- Range chart (Holdem-style, adapted to PLO5): the 16 Matchups classes laid out in 3 family columns, coloured by Approach 1 points.
 // Data: range.json (gen_range.js: exact over all 2,598,960 hands). Columns = hand families; each column is sorted by average points,
@@ -934,9 +934,9 @@ function faN(v){return (Math.round(v*10)/10).toString();}
 function faBody(h){var A=faGet(h),n=A.n,o='<div class="frh"><span>Made hand + draws</span><span>% flops</span><span>odds</span></div>';
  FLA_G.forEach(function(g){var G=A.g[g[0]];o+='<div class="fag'+(G.n?'':' z')+'"><span>'+g[1]+'</span><span>'+foPc(G.n,n)+'</span><span>'+foIn(G.n,n)+'</span></div>';
   FLA_D.forEach(function(x){var c=G[x[0]];if(!c.n)return;var f=c.f/c.n,st=c.s/c.n,b=c.b/c.n,t=f+st+b,parts=[];
-   if(f)parts.push('flush\u00a0'+faN(f));if(st)parts.push('straight\u00a0'+faN(st));if(b)parts.push('fill\u2011up\u00a0'+faN(b));
+   if(b)parts.push('fill\u2011up\u00a0'+faN(b));if(f)parts.push('flush\u00a0'+faN(f));if(st)parts.push('straight\u00a0'+faN(st));
    o+='<div class="frw fac"><span>'+(x[0]==='x'?'no draw':'+ '+x[1])+(t?'<small class="fao"><b>'+faN(t)+' outs</b>'+(parts.length>1?' = '+parts.join(' + '):' ('+parts[0].replace(/\u00a0[\d.]+$/,'')+')')+'</small>':'')+'</span><span>'+foPc(c.n,n)+'</span><span>'+foIn(c.n,n)+'</span></div>';});});
- return o+'<div class="muted">Rows within each made hand add up to it; made hands here are exclusive. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = average turn cards (of 44 unseen) per flop, each card counted once: flush, then straight cards not of the flush suit, then fill-up cards not of the flush suit.</div>';}
+ return o+'<div class="muted">Rows within each made hand add up to it; made hands here are exclusive. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = average turn cards (of 44 unseen) per flop, each card counted once: fill-up (full house/quads) first, then flush cards not already counted, then straight cards not already counted.</div>';}
 function foGet(h){var k=handStr(h);if(!foC[k])foC[k]=flopOdds(h);return foC[k];}
 function foPc(c,n){var v=c/n*100;return v===0?'0':v<0.1?v.toFixed(2)+'%':v.toFixed(1)+'%';}
 function foIn(c,n){return c?'1 in '+(n/c<10?(n/c).toFixed(1):Math.round(n/c).toLocaleString('en')):'–';}
@@ -1258,11 +1258,11 @@ flop:function(p){var ok=hands[p].length===5,R=ok?foGet(sorted(hands[p])):null;
  '<h4>Advanced (made hand + draw combos)</h4><p>Tap <b>Advanced</b> inside the panel to split the flops by <b>what you made</b> and <b>which draws come with it</b>. Every flop where you have less than a flush lands in exactly one row, so the rows under a made hand add up to that made hand.</p><ul>'+
  '<li><b>Set</b> = pocket pair + matching flop card. <b>Top two pair</b> = two of your hole cards pair the <b>two highest cards</b> of an unpaired flop (e.g. KQ on K-Q-7). <b>Other two pair</b> = any other two pair: top and bottom, bottom two, or a pocket pair plus a paired flop. <b>Trips</b> = paired flop + one matching hole card. <b>Straight</b> = a made straight (only a flush draw can improve it). <b>One pair</b>, <b>No pair</b> as usual.</li>'+
  '<li>Draw labels: <b>+ flush draw + wrap</b>; <b>+ flush draw + straight draw</b>; <b>+ flush draw</b> (no straight draw); <b>+ wrap</b>; <b>+ straight draw</b>; <b>no draw</b>. Here <b>straight draw</b> = open-ended/double gutshot or gutshot (2 or 1 completing ranks); <b>wrap</b> = 3+ completing ranks, as above.</li></ul>'+
- '<p><b>Outs</b> = turn cards, out of the <b>44</b> you can’t see after the flop (52 − your 5 − 3 on the flop), that complete the hand, using 2 hole + 3 board. Each card is counted <b>once</b>, in this order:</p><ul>'+
- '<li><b>flush</b> = every unseen card of your flush-draw suit (normally 9; 8 if you hold 3 of the suit).</li>'+
- '<li><b>straight</b> = unseen cards of the ranks that complete your straight draw, <b>minus the flush suit</b> (those cards are already in “flush”).</li>'+
- '<li><b>fill-up</b> (set, two pair, trips only) = the remaining unseen cards that give you a full house or quads (not already counted as flush or straight). A set on an unpaired flop has 7: one quads card + 3 cards for each of the other two flop ranks. Top two pair usually has 4 (two cards of each of your paired ranks).</li></ul>'+
- '<p>The row shows the <b>average</b> over its flops: <b>total outs = flush + straight + fill-up</b>, e.g. “21 outs = flush 9 + straight 9 + fill-up 3”. Outs are cards that make the hand, not guaranteed winners: a flush can be beaten by a bigger flush, a straight by a flush or full house. Turn only; river cards and backdoor draws are not counted.</p>'+
+ '<p><b>Outs</b> = turn cards, out of the <b>44</b> you can’t see after the flop (52 − your 5 − 3 on the flop), that complete the hand, using 2 hole + 3 board. Each card is counted <b>once</b>, in this order (strongest hand first):</p><ul>'+
+ '<li><b>fill-up</b> (set, two pair, trips only) = unseen cards that give you a <b>full house or quads</b>. A set on an unpaired flop has 7: one quads card + 3 cards for each of the other two flop ranks. Top two pair usually has 4 (two cards of each of your paired ranks).</li>'+
+ '<li><b>flush</b> = unseen cards of your flush-draw suit that are <b>not already fill-up</b> cards (normally 9; 8 if you hold 3 of the suit; fewer when a card of the suit also fills you up).</li>'+
+ '<li><b>straight</b> = unseen cards of the ranks that complete your straight draw, <b>minus the flush suit and fill-up cards</b> (those are already counted above).</li></ul>'+
+ '<p>The row shows the <b>average</b> over its flops: <b>total outs = fill-up + flush + straight</b>, e.g. “25 outs = fill-up 7 + flush 9 + straight 9”. Outs are cards that make the hand, not guaranteed winners: a flush can be beaten by a bigger flush, a straight by a flush or full house. Turn only; river cards and backdoor draws are not counted.</p>'+
  (R?'<p class="muted">This hand: one pair or better on '+foPc(R.n-R.made.hc,R.n)+' of flops; set '+foPc(R.made.set,R.n)+'.</p>':noHand(p))};},
 sm:function(){var c=smCell(),s='';
  s+='<p>Is calling preflop to <b>set-mine</b> a pocket pair profitable on set value alone?</p>'+
