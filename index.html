@@ -144,7 +144,7 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .fag{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;font-size:14px;font-weight:600;color:#fff;padding:6px 0 1px;border-top:1px solid #2a2a2a;margin-top:3px}
 .fag span:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums}.fag span:nth-child(3){color:#8e8e93;font-size:12px;font-weight:400}.fag.z{color:#666}
 .fac{font-size:13px;padding-left:10px}.fas{font-size:12px;padding:1px 0 1px 22px}.fas small.fao{color:#aaa}
-.nut{display:inline-block;vertical-align:-3px;filter:drop-shadow(0 0 2px rgba(255,90,0,.6))}.fac small.fao{display:block;font-size:11px;color:#8e8e93;font-variant-numeric:tabular-nums}.fac small.fao b{color:#ffb340;font-weight:600}
+.nut{display:inline-block;vertical-align:-3px;filter:drop-shadow(0 0 2px rgba(255,90,0,.6))}.nut.ice{filter:drop-shadow(0 0 2px rgba(80,190,255,.55))}.fac small.fao{display:block;font-size:11px;color:#8e8e93;font-variant-numeric:tabular-nums}.fac small.fao b{color:#ffb340;font-weight:600}
 .frh{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;font-size:11px;color:#8e8e93;text-transform:uppercase;letter-spacing:.4px;margin:8px 0 1px}.frh span:nth-child(n+2){text-align:right}
 .sec.sx{display:flex;align-items:center;justify-content:space-between;gap:6px}.sec.sx .ib{margin:-9px -6px -9px 0}
 .row .ib{margin:-8px -6px -8px 2px}.row .rv{display:inline-flex;align-items:center}
@@ -941,9 +941,10 @@ var fap=[false,false],faC={};
 function faGet(h){var k=handStr(h);if(!faC[k])faC[k]=flAdv(h);return faC[k];}
 function faN(v){return (Math.round(v*10)/10).toString();}
 // shared gradient for the nut badge (one copy, always rendered, so badges in any panel can use it)
-document.body.insertAdjacentHTML('afterbegin','<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="nutg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcc00"/><stop offset=".55" stop-color="#ff7a00"/><stop offset="1" stop-color="#ff2d00"/></linearGradient></defs></svg>');
+document.body.insertAdjacentHTML('afterbegin','<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="nutg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcc00"/><stop offset=".55" stop-color="#ff7a00"/><stop offset="1" stop-color="#ff2d00"/></linearGradient><linearGradient id="iceg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8fbff"/><stop offset=".5" stop-color="#9fe3ff"/><stop offset="1" stop-color="#4fb8ff"/></linearGradient></defs></svg>');
 var NB='<svg class="nut" viewBox="0 0 16 18" width="17" height="19" role="img" aria-label="nut"><title>nut: nothing in this class beats you</title><path d="M8 0.5C9 3.5 13.5 5.5 14.5 10a6.5 6.5 0 0 1-13 0c0-2.6 1.5-4.2 2.6-5.6.3 1.6 1 2.4 1.9 2.8C5.6 4.5 6.6 2.2 8 .5z" fill="url(#nutg)"/><text x="8" y="15.2" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff" font-family="-apple-system,Helvetica,Arial,sans-serif">N</text></svg>';
-function faPart(nm,N,X){var t=N+X;return !t?'':nm+'\u00a0'+t+(N&&!X?'\u00a0'+NB:N?' ('+NB+'\u00a0'+N+' · non\u2011nut\u00a0'+X+')':'');}
+var NN='<svg class="nut ice" viewBox="0 0 17 17" width="16" height="16" role="img" aria-label="non-nut"><title>non-nut: a bigger hand in this class can beat you</title><path d="M3 4.2 9.2 2.2 15 4.6 14.6 12.6 8.6 15.4 2.4 12.8Z" fill="url(#iceg)" stroke="#d6f6ff" stroke-width=".8" stroke-linejoin="round"/><path d="M3.6 4.6 9 3 9.2 6 4.2 7.4Z" fill="#fff" opacity=".55"/><text x="8.8" y="13" text-anchor="middle" font-size="10" font-weight="900" fill="#0a4f8a" font-family="-apple-system,Helvetica,Arial,sans-serif">n</text></svg>';
+function faPart(nm,N,X){var t=N+X;return !t?'':nm+'\u00a0'+t+(N&&!X?'\u00a0'+NB:!N?'\u00a0'+NN:' ('+NB+'\u00a0'+N+' · '+NN+'\u00a0'+X+')');}
 // one discrete outs mix: [fill-up, flush nut, flush non-nut, straight nut, straight non-nut]
 function faSig(v){var t=v[0]+v[1]+v[2]+v[3]+v[4],p=[];if(!t)return 'no outs';if(v[0])p.push('fill\u2011up\u00a0'+v[0]);
  var f=faPart('flush',v[1],v[2]),st=faPart('straight',v[3],v[4]);if(f)p.push(f);if(st)p.push(st);return '<b>'+t+' outs</b> = '+p.join(' + ');}
@@ -957,7 +958,7 @@ function faBody(h){var A=faGet(h),n=A.n,o='<div class="frh"><span>Made hand + dr
    var top=S.slice(0,3),rest=S.slice(3);
    top.forEach(function(s){o+='<div class="frw fas"><span><small class="fao">'+faSig(s.v)+'</small></span><span>'+foPc(s.n,n)+'</span><span>'+foIn(s.n,n)+'</span></div>';});
    if(rest.length){var rn=rest.reduce(function(a,s){return a+s.n;},0);o+='<div class="frw fas"><span><small class="fao">'+rest.length+' other mix'+(rest.length>1?'es':'')+', '+faRng(rest.map(tot))+'</small></span><span>'+foPc(rn,n)+'</span><span>'+foIn(rn,n)+'</span></div>';}});});
- return o+'<div class="muted">Rows within each made hand add up to it; under a draw, each indented row is one exact outs mix (the 3 most common, then the rest), so its % and 1 in N are for flops with exactly those outs. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = turn cards (of 44 unseen), each counted once: fill-up (full house/quads) first, then flush, then straight. '+NB+' = nut: nothing in that class can beat you.</div>';}
+ return o+'<div class="muted">Rows within each made hand add up to it; under a draw, each indented row is one exact outs mix (the 3 most common, then the rest), so its % and 1 in N are for flops with exactly those outs. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = turn cards (of 44 unseen), each counted once: fill-up (full house/quads) first, then flush, then straight. '+NB+' = nut, '+NN+' = non-nut (a bigger flush/straight is possible).</div>';}
 function foGet(h){var k=handStr(h);if(!foC[k])foC[k]=flopOdds(h);return foC[k];}
 function foPc(c,n){var v=c/n*100;return v===0?'0':v<0.1?v.toFixed(2)+'%':v.toFixed(1)+'%';}
 function foIn(c,n){return c?'1 in '+(n/c<10?(n/c).toFixed(1):Math.round(n/c).toLocaleString('en')):'–';}
@@ -969,7 +970,7 @@ function foSec(p,h){var R=foGet(h),n=R.n,M=R.made,D=R.draw,tp=M.sf+M.quads+M.fh+
   '<div class="fob"><div class="frh"><span>Made hand on the flop</span><span>% flops</span><span>odds</span></div>'+
   FL_MADE.map(function(m){return foRow(m[1],M[m[0]],n,m[2]);}).join('')+
   '<div class="frh"><span>Draws (to a better hand)</span><span>% flops</span><span>odds</span></div>'+
-  FL_DRAW.map(function(m){var a=m[0]==='wrap'||m[0]==='oe'||m[0]==='gs'?ao(m[0]):'';return foRow(m[1]+(m[0]==='nfd'?' '+NB:''),D[m[0]],n,(m[2]||'')+(m[2]&&a?' · ':'')+a);}).join('')+
+  FL_DRAW.map(function(m){var a=m[0]==='wrap'||m[0]==='oe'||m[0]==='gs'?ao(m[0]):'';return foRow(m[1]+(m[0]==='nfd'?' '+NB:m[0]==='fd'?' '+NN:''),D[m[0]],n,(m[2]||'')+(m[2]&&a?' · ':'')+a);}).join('')+
   '<div class="muted">Exact over all '+n.toLocaleString('en')+' flops from the 47 cards you can’t see (2 hole + 3 board). Made rows add up to 100%; a draw can come with a made hand.</div>'+
   '<div class="fa'+(fap[p]?' open':'')+'" id="fa'+p+'"><button class="fah" data-fa="'+p+'" aria-expanded="'+fap[p]+'"><b>Advanced</b><span>made hand + draw combos, with outs</span>'+CHEV+'</button><div class="fab" id="fab'+p+'">'+(fap[p]?faBody(h):'')+'</div></div>'+
   '</div></div>';}
@@ -1284,9 +1285,9 @@ flop:function(p){var ok=hands[p].length===5,R=ok?foGet(sorted(hands[p])):null;
  '<li><b>flush</b> = unseen cards of your flush-draw suit that are <b>not already fill-up</b> cards (normally 9; 8 if you hold 3 of the suit; fewer when a card of the suit also fills you up).</li>'+
  '<li><b>straight</b> = unseen cards of the ranks that complete your straight draw, <b>minus the flush suit and fill-up cards</b> (those are already counted above).</li></ul>'+
  '<p><b>Whole-card outs.</b> Outs are always whole cards. Each draw row shows the <b>range</b> of outs over its flops and how many different <b>mixes</b> there are; the indented rows under it are the exact mixes (the 3 most common, then the rest grouped), e.g. “26 outs = fill-up 7 + flush 9 + straight 10”. Each indented row has its own % and 1 in N, counting only the flops with exactly that mix, so the indented rows add up to the draw row above them.</p>'+
- '<p><b>Nut badge</b> '+NB+' = <b>nut</b>: nothing in that hand class can beat you when that card comes, whatever 2 cards the other player holds.</p><ul>'+
+ '<p><b>Nut badge</b> '+NB+' = <b>nut</b>: nothing in that hand class can beat you when that card comes, whatever 2 cards the other player holds. <b>Ice cube</b> '+NN+' = <b>non-nut</b>: you make the hand, but a bigger flush or straight is possible on that board. Both badges appear only on flush and straight outs; fill-up outs have no badge.</p><ul>'+
  '<li><b>Flush</b>: your flush is nut if you hold the highest card of the suit not on the 4-card board. Usually that means holding the ace; it can also be the king when the ace itself is the out.</li>'+
- '<li><b>Straight</b>: your straight is nut if no 2 cards make a higher straight on the 4-card board. A wrap often has both, e.g. “straight 10 ('+NB+' 5 · non-nut 5)”: 5 of the cards give you the top straight, the other 5 a straight someone can beat.</li>'+
+ '<li><b>Straight</b>: your straight is nut if no 2 cards make a higher straight on the 4-card board. A wrap often has both, e.g. “straight 10 ('+NB+' 5 · '+NN+' 5)”: 5 of the cards give you the top straight, the other 5 a straight someone can beat.</li>'+
  '<li>Only the class is checked: a nut straight can still lose to a flush or full house on that board, and a nut flush to a full house if the board pairs.</li></ul>'+
  '<p><b>total outs = fill-up + flush + straight</b>. Outs are cards that make the hand, not guaranteed winners. Turn only; river cards and backdoor draws are not counted.</p>'+
  (R?'<p class="muted">This hand: one pair or better on '+foPc(R.n-R.made.hc,R.n)+' of flops; set '+foPc(R.made.set,R.n)+'.</p>':noHand(p))};},
