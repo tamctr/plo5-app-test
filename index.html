@@ -143,7 +143,8 @@ header h1{flex:1;font-size:21px;font-weight:700;font-style:italic;margin:0;lette
 .fab{display:none}.fa.open .fab{display:block}
 .fag{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;font-size:14px;font-weight:600;color:#fff;padding:6px 0 1px;border-top:1px solid #2a2a2a;margin-top:3px}
 .fag span:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums}.fag span:nth-child(3){color:#8e8e93;font-size:12px;font-weight:400}.fag.z{color:#666}
-.fac{font-size:13px;padding-left:10px}.fac small.fao{display:block;font-size:11px;color:#8e8e93;font-variant-numeric:tabular-nums}.fac small.fao b{color:#ffb340;font-weight:600}
+.fac{font-size:13px;padding-left:10px}.fas{font-size:12px;padding:1px 0 1px 22px}.fas small.fao{color:#aaa}
+.nut{display:inline-block;vertical-align:-3px;filter:drop-shadow(0 0 2px rgba(255,90,0,.6))}.fac small.fao{display:block;font-size:11px;color:#8e8e93;font-variant-numeric:tabular-nums}.fac small.fao b{color:#ffb340;font-weight:600}
 .frh{display:grid;grid-template-columns:1fr 58px 62px;gap:4px;font-size:11px;color:#8e8e93;text-transform:uppercase;letter-spacing:.4px;margin:8px 0 1px}.frh span:nth-child(n+2){text-align:right}
 .sec.sx{display:flex;align-items:center;justify-content:space-between;gap:6px}.sec.sx .ib{margin:-9px -6px -9px 0}
 .row .ib{margin:-8px -6px -8px 2px}.row .rv{display:inline-flex;align-items:center}
@@ -773,6 +774,9 @@ function muWhy(k,hero,side,avg){var f=muFeat(hero),RN=MU_RN,pr=function(r){retur
 var FL_MADE=[['sf','Straight flush'],['quads','Quads'],['fh','Full house'],['fl','Flush'],['st','Straight'],['set','Set','pocket pair + flop card'],['trips','Trips','paired flop + hole card'],['tp','Two pair'],['pair','One pair'],['hc','High card']];
 var FL_DRAW=[['nfd','Nut flush draw'],['fd','Flush draw','not the nut'],['wrap','Wrap','3+ ranks'],['oe','Open-ended','or double gutshot, 2 ranks'],['gs','Gutshot','1 rank'],['combo','Combo draw','flush + open-ended/wrap'],['any','Any draw','flush or straight']];
 var FL_WIN=(function(){var w=[(1<<12)|15];for(var hi=4;hi<=12;hi++)w.push(31<<(hi-4));return w;})();
+// straights on a board rank mask: highest window index we can make (2 hole + 3 board) / anyone can make (board has 3+ of the window); -1 if none
+function flTop(hm,bm){for(var i=FL_WIN.length-1;i>=0;i--){var w=FL_WIN[i],m=w&~bm;if(flPop(m)<=2&&(m&~hm)===0&&flPop(hm&w)>=2)return i;}return -1;}
+function flNutTop(bm){for(var i=FL_WIN.length-1;i>=0;i--)if(flPop(FL_WIN[i]&bm)>=3)return i;return -1;}
 function flPop(m){var c=0;while(m){m&=m-1;c++;}return c;}
 // can 2 hole ranks (mask hm) + 3 board ranks (mask bm) make a straight?
 function flSt(hm,bm){for(var i=0;i<FL_WIN.length;i++){var w=FL_WIN[i],m=w&~bm;if(flPop(m)<=2&&(m&~hm)===0&&flPop(hm&w)>=2)return true;}return false;}
@@ -791,10 +795,10 @@ function flCat(I,b0,b1,b2){var h=I.h,best=0,x,hc=I.hc,fc=I.fc,fs=I.fs;
  fc[b0>>2]--;fc[b1>>2]--;fc[b2>>2]--;fs[b0&3]--;fs[b1&3]--;fs[b2&3]--;
  return {key:key,fd:fd,nr:nr,outs:outs,su:su,sm:sm};}
 function flopOdds(h){var I=flHand(h),d=[],i,j,k;for(i=0;i<52;i++)if(!I.inH[i])d.push(i);
- var R={n:0,made:{},draw:{},outs:{wrap:0,oe:0,gs:0}},M=R.made,D=R.draw;FL_MADE.forEach(function(m){M[m[0]]=0;});FL_DRAW.forEach(function(m){D[m[0]]=0;});
+ var R={n:0,made:{},draw:{},outs:{wrap:0,oe:0,gs:0},oh:{wrap:{},oe:{},gs:{}}},M=R.made,D=R.draw;FL_MADE.forEach(function(m){M[m[0]]=0;});FL_DRAW.forEach(function(m){D[m[0]]=0;});
  for(k=2;k<d.length;k++)for(j=1;j<k;j++)for(i=0;i<j;i++){var c=flCat(I,d[i],d[j],d[k]),nr=c.nr,fd=c.fd;R.n++;M[c.key]++;
   if(fd===2)D.nfd++;else if(fd===1)D.fd++;
-  if(nr>=3){D.wrap++;R.outs.wrap+=c.outs;}else if(nr===2){D.oe++;R.outs.oe+=c.outs;}else if(nr===1){D.gs++;R.outs.gs+=c.outs;}
+  var dk=nr>=3?'wrap':nr===2?'oe':nr===1?'gs':'';if(dk){D[dk]++;R.outs[dk]+=c.outs;R.oh[dk][c.outs]=(R.oh[dk][c.outs]||0)+1;}
   if(fd&&nr>=2)D.combo++;if(fd||nr)D.any++;}
  return R;}
 // ---- Advanced flop chances: made hand x draw combos, with outs split so no card is counted twice
@@ -803,7 +807,7 @@ var FLA_D=[['fw','flush draw + wrap'],['fs','flush draw + straight draw'],['f','
 // outs on the turn (44 unseen after hand + flop), each card once, in order: fill-up (set/two pair/trips only) = live cards that make a full house or quads
 // (only flop or hole ranks can); flush = live cards of the draw suit not already fill-up; straight = live cards of completing ranks, not flush suit, not fill-up
 function flAdv(h){var I=flHand(h),d=[],i,j,k,G={},fplus=0,n=0;for(i=0;i<52;i++)if(!I.inH[i])d.push(i);
- FLA_G.forEach(function(g){G[g[0]]={n:0};FLA_D.forEach(function(x){G[g[0]][x[0]]={n:0,f:0,s:0,b:0};});});
+ FLA_G.forEach(function(g){G[g[0]]={n:0};FLA_D.forEach(function(x){G[g[0]][x[0]]={n:0,f:0,s:0,b:0,fN:0,sN:0,sig:{}};});});
  for(k=2;k<d.length;k++)for(j=1;j<k;j++)for(i=0;i<j;i++){var b0=d[i],b1=d[j],b2=d[k],c=flCat(I,b0,b1,b2),key=c.key,g;n++;
   if(key==='set'||key==='trips'||key==='st'||key==='pair')g=key;else if(key==='hc')g='none';
   else if(key==='tp'){var r0=b0>>2,r1=b1>>2,r2=b2>>2,hi=Math.max(r0,r1,r2),lo=Math.min(r0,r1,r2),mid=r0+r1+r2-hi-lo;g=(hi!==mid&&mid!==lo&&I.hc[hi]&&I.hc[mid])?'top2':'tp2';}
@@ -813,8 +817,13 @@ function flAdv(h){var I=flHand(h),d=[],i,j,k,G={},fplus=0,n=0;for(i=0;i<52;i++)i
    if(t===b0||t===b1||t===b2||(tr!==b0>>2&&tr!==b1>>2&&tr!==b2>>2&&!I.hc[tr]))continue;
    var B=[b0,b1,b2,t],ok=false;for(var x=0;x<10&&!ok;x++)for(var y=0;y<4&&!ok;y++){var e=[];for(var z=0;z<4;z++)if(z!==y)e.push(B[z]);var v=eval5(h[H2[x][0]],h[H2[x][1]],e[0],e[1],e[2]);if(v>=6e6&&v<8e6)ok=true;}
    if(ok){FU[t]=1;C.b++;}}
-  if(fl)for(var r1=0;r1<13;r1++){var cf=r1*4+c.su;if(!I.inH[cf]&&cf!==b0&&cf!==b1&&cf!==b2&&!FU[cf])C.f++;}
-  if(sd)for(var r=0;r<13;r++)if(c.sm>>r&1)for(var s=0;s<4;s++){var cd=r*4+s;if(!I.inH[cd]&&s!==c.su&&!FU[cd])C.s++;}}
+  var nb=0,fN=0,fX=0,sN=0,sX=0;for(var fu in FU)nb++;
+  // flush out is nut if, with that card on the board, you hold the highest card of the suit not on the board
+  if(fl)for(var r1=0;r1<13;r1++){var cf=r1*4+c.su;if(!I.inH[cf]&&cf!==b0&&cf!==b1&&cf!==b2&&!FU[cf]){var tp=12;while(tp*4+c.su===b0||tp*4+c.su===b1||tp*4+c.su===b2||tp*4+c.su===cf)tp--;if(I.inH[tp*4+c.su])fN++;else fX++;}}
+  // straight out is nut if your best straight is the highest straight possible on the 4-card board
+  if(sd){var bm=(1<<(b0>>2))|(1<<(b1>>2))|(1<<(b2>>2));for(var r=0;r<13;r++)if(c.sm>>r&1){var nut=flTop(I.hm,bm|1<<r)===flNutTop(bm|1<<r);
+   for(var s=0;s<4;s++){var cd=r*4+s;if(!I.inH[cd]&&s!==c.su&&!FU[cd]){if(nut)sN++;else sX++;}}}}
+  C.f+=fN+fX;C.fN+=fN;C.s+=sN+sX;C.sN+=sN;var sk=nb+','+fN+','+fX+','+sN+','+sX;C.sig[sk]=(C.sig[sk]||0)+1;}
  return {n:n,g:G,fplus:fplus};}
 // ---- Range chart (Holdem-style, adapted to PLO5): the 16 Matchups classes laid out in 3 family columns, coloured by Approach 1 points.
 // Data: range.json (gen_range.js: exact over all 2,598,960 hands). Columns = hand families; each column is sorted by average points,
@@ -829,7 +838,7 @@ function rgRows(L){return Math.max.apply(null,L.map(function(c){return c.keys.le
 function rgColor(p){var t=Math.max(0,Math.min(1,(p-RG_LO)/(RG_HI-RG_LO)));return 'hsl('+Math.round(t*130)+',72%,'+Math.round(50-6*Math.abs(t-0.45))+'%)';}
 // percentile (0-100, ties half) of a points value over all 2,598,960 hands, from score_a1.js PCT
 function rgPct(p){var x=Math.round(p);return A1.PCT[x]!==undefined?A1.PCT[x]:(x<A1.MINP?0:100);}
-if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq,muReasons:muReasons,muBreak:muBreak,muStBreak:muStBreak,MU_BD:MU_BD,MU_BDN:MU_BDN,muPick:muPick,muGen:muGen,muPool:muPool,muSt:muSt,muRun:muRun,FL_MADE:FL_MADE,FL_DRAW:FL_DRAW,flopOdds:flopOdds,flSt:flSt,flHand:flHand,flCat:flCat,flAdv:flAdv,FLA_G:FLA_G,FLA_D:FLA_D,RG_COLS:RG_COLS,RG_SHORT:RG_SHORT,rgLayout:rgLayout,rgRows:rgRows,rgColor:rgColor,rgPct:rgPct,A1:A1};
+if(typeof module!=='undefined')module.exports={eval5:eval5,evalPLO:evalPLO,mcEquity:mcEquity,parseHand:parseHand,heuristic:heuristic,heuristicLinear:heuristicLinear,heuristicOld:heuristicOld,handStr:handStr,W:W,mcH2H:mcH2H,mcVsRandom:mcVsRandom,T3:T3,T3_LABELS:T3_LABELS,vs3:vs3,A1_LABELS:A1_LABELS,A1_GROUPS:A1_GROUPS,LIN_LABELS:LIN_LABELS,dealByPoints:dealByPoints,dealRange:dealRange,ptsBetween:ptsBetween,listedHands:listedHands,botRanks:botRanks,ptsAtLeast:ptsAtLeast,ptsRange:ptsRange,colexUnrank:colexUnrank,topRanks:topRanks,MU_CLASSES:MU_CLASSES,muFeat:muFeat,handClass:handClass,sampleClass:sampleClass,matchups:matchups,muWhy:muWhy,muEq:muEq,muReasons:muReasons,muBreak:muBreak,muStBreak:muStBreak,MU_BD:MU_BD,MU_BDN:MU_BDN,muPick:muPick,muGen:muGen,muPool:muPool,muSt:muSt,muRun:muRun,FL_MADE:FL_MADE,FL_DRAW:FL_DRAW,flopOdds:flopOdds,flSt:flSt,flHand:flHand,flCat:flCat,flAdv:flAdv,flTop:flTop,flNutTop:flNutTop,FLA_G:FLA_G,FLA_D:FLA_D,RG_COLS:RG_COLS,RG_SHORT:RG_SHORT,rgLayout:rgLayout,rgRows:rgRows,rgColor:rgColor,rgPct:rgPct,A1:A1};
 // ==ENDCORE==
 </script>
 <script>
@@ -931,24 +940,36 @@ var fop=[false,false],foC={};
 var fap=[false,false],faC={};
 function faGet(h){var k=handStr(h);if(!faC[k])faC[k]=flAdv(h);return faC[k];}
 function faN(v){return (Math.round(v*10)/10).toString();}
+// shared gradient for the nut badge (one copy, always rendered, so badges in any panel can use it)
+document.body.insertAdjacentHTML('afterbegin','<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="nutg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcc00"/><stop offset=".55" stop-color="#ff7a00"/><stop offset="1" stop-color="#ff2d00"/></linearGradient></defs></svg>');
+var NB='<svg class="nut" viewBox="0 0 16 18" width="17" height="19" role="img" aria-label="nut"><title>nut: nothing in this class beats you</title><path d="M8 0.5C9 3.5 13.5 5.5 14.5 10a6.5 6.5 0 0 1-13 0c0-2.6 1.5-4.2 2.6-5.6.3 1.6 1 2.4 1.9 2.8C5.6 4.5 6.6 2.2 8 .5z" fill="url(#nutg)"/><text x="8" y="15.2" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff" font-family="-apple-system,Helvetica,Arial,sans-serif">N</text></svg>';
+function faPart(nm,N,X){var t=N+X;return !t?'':nm+'\u00a0'+t+(N&&!X?'\u00a0'+NB:N?' ('+NB+'\u00a0'+N+' · non\u2011nut\u00a0'+X+')':'');}
+// one discrete outs mix: [fill-up, flush nut, flush non-nut, straight nut, straight non-nut]
+function faSig(v){var t=v[0]+v[1]+v[2]+v[3]+v[4],p=[];if(!t)return 'no outs';if(v[0])p.push('fill\u2011up\u00a0'+v[0]);
+ var f=faPart('flush',v[1],v[2]),st=faPart('straight',v[3],v[4]);if(f)p.push(f);if(st)p.push(st);return '<b>'+t+' outs</b> = '+p.join(' + ');}
+function faRng(a){var lo=Math.min.apply(null,a),hi=Math.max.apply(null,a);return lo===hi?lo+' outs':lo+'–'+hi+' outs';}
 function faBody(h){var A=faGet(h),n=A.n,o='<div class="frh"><span>Made hand + draws</span><span>% flops</span><span>odds</span></div>';
  FLA_G.forEach(function(g){var G=A.g[g[0]];o+='<div class="fag'+(G.n?'':' z')+'"><span>'+g[1]+'</span><span>'+foPc(G.n,n)+'</span><span>'+foIn(G.n,n)+'</span></div>';
-  FLA_D.forEach(function(x){var c=G[x[0]];if(!c.n)return;var f=c.f/c.n,st=c.s/c.n,b=c.b/c.n,t=f+st+b,parts=[];
-   if(b)parts.push('fill\u2011up\u00a0'+faN(b));if(f)parts.push('flush\u00a0'+faN(f));if(st)parts.push('straight\u00a0'+faN(st));
-   o+='<div class="frw fac"><span>'+(x[0]==='x'?'no draw':'+ '+x[1])+(t?'<small class="fao"><b>'+faN(t)+' outs</b>'+(parts.length>1?' = '+parts.join(' + '):' ('+parts[0].replace(/\u00a0[\d.]+$/,'')+')')+'</small>':'')+'</span><span>'+foPc(c.n,n)+'</span><span>'+foIn(c.n,n)+'</span></div>';});});
- return o+'<div class="muted">Rows within each made hand add up to it; made hands here are exclusive. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = average turn cards (of 44 unseen) per flop, each card counted once: fill-up (full house/quads) first, then flush cards not already counted, then straight cards not already counted.</div>';}
+  FLA_D.forEach(function(x){var c=G[x[0]];if(!c.n)return;var lab=x[0]==='x'?'no draw':'+ '+x[1];
+   var S=Object.keys(c.sig).map(function(k){return {v:k.split(',').map(Number),n:c.sig[k]};}).sort(function(a,b){return b.n-a.n||(b.v[0]+b.v[1]+b.v[2]+b.v[3]+b.v[4])-(a.v[0]+a.v[1]+a.v[2]+a.v[3]+a.v[4]);}),tot=function(s){return s.v[0]+s.v[1]+s.v[2]+s.v[3]+s.v[4];};
+   if(S.length===1){o+='<div class="frw fac"><span>'+lab+'<small class="fao">'+faSig(S[0].v)+'</small></span><span>'+foPc(c.n,n)+'</span><span>'+foIn(c.n,n)+'</span></div>';return;}
+   o+='<div class="frw fac"><span>'+lab+'<small class="fao">'+faRng(S.map(tot))+', '+S.length+' mixes</small></span><span>'+foPc(c.n,n)+'</span><span>'+foIn(c.n,n)+'</span></div>';
+   var top=S.slice(0,3),rest=S.slice(3);
+   top.forEach(function(s){o+='<div class="frw fas"><span><small class="fao">'+faSig(s.v)+'</small></span><span>'+foPc(s.n,n)+'</span><span>'+foIn(s.n,n)+'</span></div>';});
+   if(rest.length){var rn=rest.reduce(function(a,s){return a+s.n;},0);o+='<div class="frw fas"><span><small class="fao">'+rest.length+' other mix'+(rest.length>1?'es':'')+', '+faRng(rest.map(tot))+'</small></span><span>'+foPc(rn,n)+'</span><span>'+foIn(rn,n)+'</span></div>';}});});
+ return o+'<div class="muted">Rows within each made hand add up to it; under a draw, each indented row is one exact outs mix (the 3 most common, then the rest), so its % and 1 in N are for flops with exactly those outs. Already a flush or better: '+foPc(A.fplus,n)+' of flops (not shown). Outs = turn cards (of 44 unseen), each counted once: fill-up (full house/quads) first, then flush, then straight. '+NB+' = nut: nothing in that class can beat you.</div>';}
 function foGet(h){var k=handStr(h);if(!foC[k])foC[k]=flopOdds(h);return foC[k];}
 function foPc(c,n){var v=c/n*100;return v===0?'0':v<0.1?v.toFixed(2)+'%':v.toFixed(1)+'%';}
 function foIn(c,n){return c?'1 in '+(n/c<10?(n/c).toFixed(1):Math.round(n/c).toLocaleString('en')):'–';}
 function foRow(name,c,n,sub){var w=c/n*100;return '<div class="frw'+(c?'':' z')+'"><span>'+name+(sub?' <small>'+sub+'</small>':'')+'</span><span>'+foPc(c,n)+'</span><span>'+foIn(c,n)+'</span><i style="width:'+Math.min(100,w)+'%"></i></div>';}
 function foSec(p,h){var R=foGet(h),n=R.n,M=R.made,D=R.draw,tp=M.sf+M.quads+M.fh+M.fl+M.st+M.set+M.trips+M.tp,
-  ao=function(k){return D[k]?'avg '+(R.outs[k]/D[k]).toFixed(1)+' outs':'';};
+  ao=function(k){if(!D[k])return '';var H=R.oh[k],ks=Object.keys(H).map(Number),md=ks.reduce(function(a,b){return H[b]>H[a]?b:a;},ks[0]);return faRng(ks)+(ks.length>1?', most often '+md:'');};
  return '<div class="fo'+(fop[p]?' open':'')+'" id="fo'+p+'"><button class="foh" data-fo="'+p+'" aria-expanded="'+fop[p]+'"><b>Flop chances</b><span class="fos">2 pair+ '+Math.round(tp/n*100)+'% · draws '+Math.round(D.any/n*100)+'%</span></button>'+
   ib('flop',p,'flop chances')+'<button class="chev" data-fo="'+p+'" aria-label="toggle flop chances">'+CHEV+'</button>'+
   '<div class="fob"><div class="frh"><span>Made hand on the flop</span><span>% flops</span><span>odds</span></div>'+
   FL_MADE.map(function(m){return foRow(m[1],M[m[0]],n,m[2]);}).join('')+
   '<div class="frh"><span>Draws (to a better hand)</span><span>% flops</span><span>odds</span></div>'+
-  FL_DRAW.map(function(m){var a=m[0]==='wrap'||m[0]==='oe'||m[0]==='gs'?ao(m[0]):'';return foRow(m[1],D[m[0]],n,(m[2]||'')+(m[2]&&a?' · ':'')+a);}).join('')+
+  FL_DRAW.map(function(m){var a=m[0]==='wrap'||m[0]==='oe'||m[0]==='gs'?ao(m[0]):'';return foRow(m[1]+(m[0]==='nfd'?' '+NB:''),D[m[0]],n,(m[2]||'')+(m[2]&&a?' · ':'')+a);}).join('')+
   '<div class="muted">Exact over all '+n.toLocaleString('en')+' flops from the 47 cards you can’t see (2 hole + 3 board). Made rows add up to 100%; a draw can come with a made hand.</div>'+
   '<div class="fa'+(fap[p]?' open':'')+'" id="fa'+p+'"><button class="fah" data-fa="'+p+'" aria-expanded="'+fap[p]+'"><b>Advanced</b><span>made hand + draw combos, with outs</span>'+CHEV+'</button><div class="fab" id="fab'+p+'">'+(fap[p]?faBody(h):'')+'</div></div>'+
   '</div></div>';}
@@ -1252,7 +1273,7 @@ flop:function(p){var ok=hands[p].length===5,R=ok?foGet(sorted(hands[p])):null;
  '<h4>Made hand (exclusive)</h4><p>Each flop is counted once, in the row of your best 2+3 hand, so the made rows add up to 100%. <b>Set</b> = a pocket pair plus a matching flop card; <b>Trips</b> = a paired flop plus one matching hole card. A set that also fills up (e.g. 55 on 5KK) is a full house, so the Set row alone is below the 12.5% (1 in 8) that a pocket pair flops a set or better. With a pocket pair you always have at least one pair, so High card is 0.</p>'+
  '<h4>Draws (overlapping)</h4><p>A draw is listed only if it is to a <b>better hand class than the one you already made</b>: flush draws only without a flush or better, straight draws only without a straight or better. Draws can come together with a made hand (a set with a flush draw counts in both Set and Flush draw), and one flop can have a flush draw and a straight draw, so draw rows do <b>not</b> add up to anything.</p><ul>'+
  '<li><b>Flush draw</b>: 2+ of your hole cards in a suit and exactly 2 of that suit on the flop (one more on the turn or river makes a 2+3 flush). <b>Nut</b> = you hold the highest card of that suit not on the flop, so your flush would be the best possible one.</li>'+
- '<li><b>Straight draws</b> are graded by how many different turn ranks would give you a 2+3 straight (ranks with no cards left don’t count): <b>Gutshot</b> = 1 rank, <b>Open-ended</b> (or double gutshot) = 2 ranks (usually 8 outs), <b>Wrap</b> = 3 or more ranks (typically 9–20 outs). “avg outs” = the average number of unseen cards that complete the straight, after the cards in your hand and on the flop.</li>'+
+ '<li><b>Straight draws</b> are graded by how many different turn ranks would give you a 2+3 straight (ranks with no cards left don’t count): <b>Gutshot</b> = 1 rank, <b>Open-ended</b> (or double gutshot) = 2 ranks (usually 8 outs), <b>Wrap</b> = 3 or more ranks (typically 9–20 outs). The outs shown are whole cards: the range over those flops and the most common count (unseen cards that complete the straight, after the cards in your hand and on the flop).</li>'+
  '<li><b>Combo draw</b> = a flush draw plus an open-ended draw or wrap on the same flop. <b>Any draw</b> = a flush or straight draw of any kind.</li></ul>'+
  '<p>Backdoor draws (needing both turn and river) are not counted. Odds “1 in N” = 1 ÷ share.</p>'+
  '<h4>Advanced (made hand + draw combos)</h4><p>Tap <b>Advanced</b> inside the panel to split the flops by <b>what you made</b> and <b>which draws come with it</b>. Every flop where you have less than a flush lands in exactly one row, so the rows under a made hand add up to that made hand.</p><ul>'+
@@ -1262,7 +1283,12 @@ flop:function(p){var ok=hands[p].length===5,R=ok?foGet(sorted(hands[p])):null;
  '<li><b>fill-up</b> (set, two pair, trips only) = unseen cards that give you a <b>full house or quads</b>. A set on an unpaired flop has 7: one quads card + 3 cards for each of the other two flop ranks. Top two pair usually has 4 (two cards of each of your paired ranks).</li>'+
  '<li><b>flush</b> = unseen cards of your flush-draw suit that are <b>not already fill-up</b> cards (normally 9; 8 if you hold 3 of the suit; fewer when a card of the suit also fills you up).</li>'+
  '<li><b>straight</b> = unseen cards of the ranks that complete your straight draw, <b>minus the flush suit and fill-up cards</b> (those are already counted above).</li></ul>'+
- '<p>The row shows the <b>average</b> over its flops: <b>total outs = fill-up + flush + straight</b>, e.g. “25 outs = fill-up 7 + flush 9 + straight 9”. Outs are cards that make the hand, not guaranteed winners: a flush can be beaten by a bigger flush, a straight by a flush or full house. Turn only; river cards and backdoor draws are not counted.</p>'+
+ '<p><b>Whole-card outs.</b> Outs are always whole cards. Each draw row shows the <b>range</b> of outs over its flops and how many different <b>mixes</b> there are; the indented rows under it are the exact mixes (the 3 most common, then the rest grouped), e.g. “26 outs = fill-up 7 + flush 9 + straight 10”. Each indented row has its own % and 1 in N, counting only the flops with exactly that mix, so the indented rows add up to the draw row above them.</p>'+
+ '<p><b>Nut badge</b> '+NB+' = <b>nut</b>: nothing in that hand class can beat you when that card comes, whatever 2 cards the other player holds.</p><ul>'+
+ '<li><b>Flush</b>: your flush is nut if you hold the highest card of the suit not on the 4-card board. Usually that means holding the ace; it can also be the king when the ace itself is the out.</li>'+
+ '<li><b>Straight</b>: your straight is nut if no 2 cards make a higher straight on the 4-card board. A wrap often has both, e.g. “straight 10 ('+NB+' 5 · non-nut 5)”: 5 of the cards give you the top straight, the other 5 a straight someone can beat.</li>'+
+ '<li>Only the class is checked: a nut straight can still lose to a flush or full house on that board, and a nut flush to a full house if the board pairs.</li></ul>'+
+ '<p><b>total outs = fill-up + flush + straight</b>. Outs are cards that make the hand, not guaranteed winners. Turn only; river cards and backdoor draws are not counted.</p>'+
  (R?'<p class="muted">This hand: one pair or better on '+foPc(R.n-R.made.hc,R.n)+' of flops; set '+foPc(R.made.set,R.n)+'.</p>':noHand(p))};},
 sm:function(){var c=smCell(),s='';
  s+='<p>Is calling preflop to <b>set-mine</b> a pocket pair profitable on set value alone?</p>'+
